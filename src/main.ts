@@ -1,3 +1,10 @@
+import { webcrypto } from 'crypto';
+// Polyfill for Node.js < 19 — @nestjs/typeorm uses crypto.randomUUID() globally
+if (!globalThis.crypto) {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  (globalThis as any).crypto = webcrypto;
+}
+
 import { NestFactory } from '@nestjs/core';
 import { ValidationPipe, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
