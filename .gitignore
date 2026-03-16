@@ -1,0 +1,10 @@
+node_modules/
+dist/
+.env
+coverage/
+.DS_Store
+todo.md
+project_spec.md
+claude.md
+.mcp.json
+.claude/
