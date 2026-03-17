@@ -38,7 +38,10 @@ export class FxService {
   private async fetchRatesFromApi(
     baseCurrency: string,
   ): Promise<Record<string, number> | null> {
-    const baseUrl = this.configService.get<string>('FX_API_BASE_URL', 'https://open.er-api.com/v6/latest');
+    const baseUrl = this.configService.get<string>(
+      'FX_API_BASE_URL',
+      'https://open.er-api.com/v6/latest',
+    );
     const url = `${baseUrl}/${baseCurrency}`;
 
     try {
@@ -52,7 +55,9 @@ export class FxService {
       );
 
       if (data.result !== 'success' || !data.rates) {
-        this.logger.warn(`FX API returned unexpected response for ${baseCurrency}`);
+        this.logger.warn(
+          `FX API returned unexpected response for ${baseCurrency}`,
+        );
         return null;
       }
 
@@ -86,7 +91,9 @@ export class FxService {
         return entity;
       });
       await this.fxRateRepository.save(entities, { chunk: 50 });
-      this.logger.log(`Persisted ${entities.length} FX rates to DB for base ${baseCurrency}`);
+      this.logger.log(
+        `Persisted ${entities.length} FX rates to DB for base ${baseCurrency}`,
+      );
     } catch (error) {
       this.logger.warn(
         `Failed to persist FX rates to DB: ${(error as Error).message}`,
@@ -123,16 +130,18 @@ export class FxService {
     baseCurrency: string,
     targetCurrency: string,
   ): Promise<string | null> {
-    const maxAgeSeconds = this.configService.get<number>('FX_RATE_MAX_AGE', 1800);
+    const maxAgeSeconds = this.configService.get<number>(
+      'FX_RATE_MAX_AGE',
+      1800,
+    );
     try {
       const result = await this.fxRateRepository
         .createQueryBuilder('fx')
         .where('fx.base_currency = :base', { base: baseCurrency })
         .andWhere('fx.target_currency = :target', { target: targetCurrency })
-        .andWhere(
-          `fx.fetched_at > NOW() - make_interval(secs => :maxAge)`,
-          { maxAge: maxAgeSeconds },
-        )
+        .andWhere(`fx.fetched_at > NOW() - make_interval(secs => :maxAge)`, {
+          maxAge: maxAgeSeconds,
+        })
         .orderBy('fx.fetched_at', 'DESC')
         .getOne();
 
@@ -162,7 +171,9 @@ export class FxService {
         `fx_rate:${baseCurrency}:${targetCurrency}`,
       );
       if (cached) {
-        this.logger.log(`Redis cache HIT: ${baseCurrency}→${targetCurrency} = ${cached}`);
+        this.logger.log(
+          `Redis cache HIT: ${baseCurrency}→${targetCurrency} = ${cached}`,
+        );
         return cached;
       }
       this.logger.log(`Redis cache MISS: ${baseCurrency}→${targetCurrency}`);
@@ -197,7 +208,7 @@ export class FxService {
           dbRate,
           60000, // 1 min TTL for stale data
         );
-      } catch (_) {
+      } catch {
         // Redis unavailable — fine
       }
       return dbRate;
@@ -213,7 +224,11 @@ export class FxService {
   async getRates(
     baseCurrency: string,
     symbols?: string[],
-  ): Promise<{ base: string; rates: Record<string, string>; lastUpdated: string }> {
+  ): Promise<{
+    base: string;
+    rates: Record<string, string>;
+    lastUpdated: string;
+  }> {
     // Attempt to get all rates from API (to return a full set)
     const apiRates = await this.fetchRatesFromApi(baseCurrency);
 
@@ -273,7 +288,10 @@ export class FxService {
 
   // ─── Public: get exchange rate as Decimal (used by WalletService) ────────────
 
-  async getExchangeRate(fromCurrency: string, toCurrency: string): Promise<Decimal> {
+  async getExchangeRate(
+    fromCurrency: string,
+    toCurrency: string,
+  ): Promise<Decimal> {
     if (fromCurrency === toCurrency) {
       return new Decimal('1');
     }

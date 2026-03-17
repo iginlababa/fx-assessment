@@ -1,8 +1,4 @@
-import {
-  BadRequestException,
-  Injectable,
-  Logger,
-} from '@nestjs/common';
+import { BadRequestException, Injectable, Logger } from '@nestjs/common';
 import { InjectDataSource, InjectRepository } from '@nestjs/typeorm';
 import Decimal from 'decimal.js';
 import { DataSource, Repository } from 'typeorm';
@@ -40,7 +36,9 @@ export class WalletService {
 
   // ─── getWallets ───────────────────────────────────────────────────────────────
 
-  async getWallets(userId: string): Promise<{ currency: string; balance: string }[]> {
+  async getWallets(
+    userId: string,
+  ): Promise<{ currency: string; balance: string }[]> {
     const wallets = await this.walletRepository.find({
       where: { user_id: userId },
       order: { currency: 'ASC' },
@@ -165,7 +163,9 @@ export class WalletService {
         where: { idempotency_key: dto.idempotencyKey },
       });
       if (existing) {
-        this.logger.log(`Idempotency hit on convert: key=${dto.idempotencyKey}`);
+        this.logger.log(
+          `Idempotency hit on convert: key=${dto.idempotencyKey}`,
+        );
         await queryRunner.commitTransaction();
         return {
           fromCurrency: existing.from_currency ?? dto.fromCurrency,
@@ -184,7 +184,10 @@ export class WalletService {
       });
 
       // (c) Balance check
-      if (!sourceWallet || new Decimal(sourceWallet.balance).lessThan(dto.amount)) {
+      if (
+        !sourceWallet ||
+        new Decimal(sourceWallet.balance).lessThan(dto.amount)
+      ) {
         throw new BadRequestException(
           `Insufficient balance in ${dto.fromCurrency} wallet`,
         );
@@ -244,7 +247,7 @@ export class WalletService {
       await queryRunner.commitTransaction();
 
       this.logger.log(
-        `Converted ${fromAmount} ${dto.fromCurrency} → ${toAmount.toFixed(4)} ${dto.toCurrency} ` +
+        `Converted ${fromAmount.toString()} ${dto.fromCurrency} → ${toAmount.toFixed(4)} ${dto.toCurrency} ` +
           `at rate ${exchangeRate.toFixed(8)} for user ${userId}`,
       );
 

@@ -1,7 +1,7 @@
 import { webcrypto } from 'crypto';
 // Polyfill for Node.js < 19 — @nestjs/typeorm uses crypto.randomUUID() globally
 if (!globalThis.crypto) {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
   (globalThis as any).crypto = webcrypto;
 }
 
@@ -43,4 +43,4 @@ async function bootstrap() {
 
   Logger.log(`Application running on port ${port}`);
 }
-bootstrap();
+void bootstrap();

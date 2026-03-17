@@ -1,6 +1,5 @@
 import { webcrypto } from 'crypto';
 if (!globalThis.crypto) {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   (globalThis as any).crypto = webcrypto;
 }
 
@@ -152,7 +151,11 @@ describe('E2E — full user flow', () => {
     const res = await request(app.getHttpServer())
       .post('/wallet/fund')
       .set('Authorization', `Bearer ${accessToken}`)
-      .send({ amount: 500000, currency: 'NGN', idempotencyKey: `fund-${RUN_ID}` })
+      .send({
+        amount: 500000,
+        currency: 'NGN',
+        idempotencyKey: `fund-${RUN_ID}`,
+      })
       .expect(200);
 
     expect(res.body.wallet).toBeDefined();
@@ -163,7 +166,11 @@ describe('E2E — full user flow', () => {
     const res = await request(app.getHttpServer())
       .post('/wallet/fund')
       .set('Authorization', `Bearer ${accessToken}`)
-      .send({ amount: 500000, currency: 'NGN', idempotencyKey: `fund-${RUN_ID}` })
+      .send({
+        amount: 500000,
+        currency: 'NGN',
+        idempotencyKey: `fund-${RUN_ID}`,
+      })
       .expect(200);
 
     // Should return the previously recorded transaction (idempotency hit)
@@ -267,7 +274,11 @@ describe('E2E — concurrent conversion (double-spend prevention)', () => {
 
     app = moduleFixture.createNestApplication();
     app.useGlobalPipes(
-      new ValidationPipe({ whitelist: true, forbidNonWhitelisted: true, transform: true }),
+      new ValidationPipe({
+        whitelist: true,
+        forbidNonWhitelisted: true,
+        transform: true,
+      }),
     );
     await app.init();
 
@@ -275,9 +286,12 @@ describe('E2E — concurrent conversion (double-spend prevention)', () => {
     await cleanupUser(ds, email);
 
     // Register + verify + login
-    const reg = await request(app.getHttpServer())
-      .post('/auth/register')
-      .send({ email, password: 'Password@123', firstName: 'Con', lastName: 'Current' });
+    const reg = await request(app.getHttpServer()).post('/auth/register').send({
+      email,
+      password: 'Password@123',
+      firstName: 'Con',
+      lastName: 'Current',
+    });
     userId = reg.body.userId;
 
     const rows: { code: string }[] = await ds.query(
@@ -297,7 +311,11 @@ describe('E2E — concurrent conversion (double-spend prevention)', () => {
     const fundRes = await request(app.getHttpServer())
       .post('/wallet/fund')
       .set('Authorization', `Bearer ${accessToken}`)
-      .send({ amount: 20000, currency: 'NGN', idempotencyKey: `concur-fund-${RUN_ID}` });
+      .send({
+        amount: 20000,
+        currency: 'NGN',
+        idempotencyKey: `concur-fund-${RUN_ID}`,
+      });
     expect(fundRes.status).toBe(200);
   });
 
@@ -335,9 +353,9 @@ describe('E2E — concurrent conversion (double-spend prevention)', () => {
     const walletRes = await request(app.getHttpServer())
       .get('/wallet')
       .set('Authorization', `Bearer ${accessToken}`);
-    const ngnWallet = (walletRes.body.wallets as { currency: string; balance: string }[]).find(
-      (w) => w.currency === 'NGN',
-    );
+    const ngnWallet = (
+      walletRes.body.wallets as { currency: string; balance: string }[]
+    ).find((w) => w.currency === 'NGN');
     expect(parseFloat(ngnWallet!.balance)).toBeGreaterThanOrEqual(0);
   });
 });

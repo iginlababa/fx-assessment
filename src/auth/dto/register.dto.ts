@@ -13,11 +13,15 @@ export class RegisterDto {
   @IsEmail()
   email!: string;
 
-  @ApiProperty({ example: 'SecureP@ss1', description: 'Min 8 chars, 1 uppercase, 1 number, 1 special char' })
+  @ApiProperty({
+    example: 'SecureP@ss1',
+    description: 'Min 8 chars, 1 uppercase, 1 number, 1 special char',
+  })
   @IsString()
   @MinLength(8)
-  @Matches(/^(?=.*[A-Z])(?=.*\d)(?=.*[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?])/, {
-    message: 'password must contain at least 1 uppercase letter, 1 number, and 1 special character',
+  @Matches(/^(?=.*[A-Z])(?=.*\d)(?=.*[!@#$%^&*()_+\-=[\]{};':"\\|,.<>/?])/, {
+    message:
+      'password must contain at least 1 uppercase letter, 1 number, and 1 special character',
   })
   password!: string;
 

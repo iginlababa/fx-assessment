@@ -2,7 +2,6 @@ import { BadRequestException } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 import { getDataSourceToken, getRepositoryToken } from '@nestjs/typeorm';
 import Decimal from 'decimal.js';
-import { Transaction } from '../transactions/entities/transaction.entity';
 import { TransactionStatus } from '../transactions/enums/transaction-status.enum';
 import { TransactionType } from '../transactions/enums/transaction-type.enum';
 import { FxService } from '../fx/fx.service';
@@ -22,7 +21,9 @@ const makeMockQueryRunner = () => ({
   manager: {
     findOne: jest.fn(),
     save: jest.fn().mockResolvedValue({}),
-    create: jest.fn().mockImplementation((_entity: unknown, data: unknown) => ({ ...data as object })),
+    create: jest.fn().mockImplementation((_entity: unknown, data: unknown) => ({
+      ...(data as object),
+    })),
   },
 });
 
@@ -30,13 +31,22 @@ describe('WalletService', () => {
   let service: WalletService;
   let mockQR: ReturnType<typeof makeMockQueryRunner>;
   let mockDataSource: { createQueryRunner: jest.Mock };
-  let mockWalletRepository: { create: jest.Mock; save: jest.Mock; find: jest.Mock };
+  let mockWalletRepository: {
+    create: jest.Mock;
+    save: jest.Mock;
+    find: jest.Mock;
+  };
   let mockFxService: { getExchangeRate: jest.Mock };
 
   const USER_ID = 'user-uuid-123';
 
   const makeWallet = (currency: string, balance: string): Wallet =>
-    ({ id: `wallet-${currency}`, user_id: USER_ID, currency, balance }) as Wallet;
+    ({
+      id: `wallet-${currency}`,
+      user_id: USER_ID,
+      currency,
+      balance,
+    }) as Wallet;
 
   beforeEach(async () => {
     mockQR = makeMockQueryRunner();
@@ -73,7 +83,7 @@ describe('WalletService', () => {
       const existingWallet = makeWallet('NGN', '5000.0000');
       // findOne: first call = idempotency check (no existing tx), second call = wallet
       mockQR.manager.findOne
-        .mockResolvedValueOnce(null)          // no duplicate tx
+        .mockResolvedValueOnce(null) // no duplicate tx
         .mockResolvedValueOnce(existingWallet); // existing wallet
 
       const result = await service.fundWallet(USER_ID, fundDto);
@@ -89,8 +99,8 @@ describe('WalletService', () => {
 
     it('creates a new wallet when one does not exist for the currency', async () => {
       mockQR.manager.findOne
-        .mockResolvedValueOnce(null)   // no duplicate tx
-        .mockResolvedValueOnce(null);  // wallet doesn't exist
+        .mockResolvedValueOnce(null) // no duplicate tx
+        .mockResolvedValueOnce(null); // wallet doesn't exist
 
       const result = await service.fundWallet(USER_ID, fundDto);
 
@@ -125,10 +135,14 @@ describe('WalletService', () => {
 
     it('rolls back and always releases on error', async () => {
       mockQR.manager.findOne.mockResolvedValueOnce(null);
-      mockQR.manager.findOne.mockResolvedValueOnce(makeWallet('NGN', '100.0000'));
+      mockQR.manager.findOne.mockResolvedValueOnce(
+        makeWallet('NGN', '100.0000'),
+      );
       mockQR.manager.save.mockRejectedValueOnce(new Error('DB write error'));
 
-      await expect(service.fundWallet(USER_ID, fundDto)).rejects.toThrow('DB write error');
+      await expect(service.fundWallet(USER_ID, fundDto)).rejects.toThrow(
+        'DB write error',
+      );
 
       expect(mockQR.rollbackTransaction).toHaveBeenCalledTimes(1);
       expect(mockQR.release).toHaveBeenCalledTimes(1); // always released
@@ -158,8 +172,8 @@ describe('WalletService', () => {
 
     it('successfully converts with correct debit and credit amounts', async () => {
       mockQR.manager.findOne
-        .mockResolvedValueOnce(null)       // no duplicate tx
-        .mockResolvedValueOnce(ngnWallet)  // source wallet (NGN)
+        .mockResolvedValueOnce(null) // no duplicate tx
+        .mockResolvedValueOnce(ngnWallet) // source wallet (NGN)
         .mockResolvedValueOnce(makeWallet('USD', '5.0000')); // dest wallet (USD)
 
       mockFxService.getExchangeRate.mockResolvedValue(new Decimal('0.00061'));
@@ -171,12 +185,16 @@ describe('WalletService', () => {
         .filter((call) => call[0] === Wallet)
         .map((call) => call[1]);
       const sourceAfter = savedWallets[0] as Wallet;
-      expect(sourceAfter.balance).toBe(new Decimal('50000').minus(1000).toFixed(4));
+      expect(sourceAfter.balance).toBe(
+        new Decimal('50000').minus(1000).toFixed(4),
+      );
 
       // credit: 5.0000 + (1000 * 0.00061) = 5.0000 + 0.6100 = 5.6100
       const destAfter = savedWallets[1] as Wallet;
       expect(destAfter.balance).toBe(
-        new Decimal('5.0000').plus(new Decimal(1000).times('0.00061').toDecimalPlaces(4)).toFixed(4),
+        new Decimal('5.0000')
+          .plus(new Decimal(1000).times('0.00061').toDecimalPlaces(4))
+          .toFixed(4),
       );
 
       expect(result.rateUsed).toBe(new Decimal('0.00061').toFixed(8));
@@ -199,29 +217,29 @@ describe('WalletService', () => {
         .mockResolvedValueOnce(null) // no duplicate tx
         .mockResolvedValueOnce(makeWallet('NGN', '500.0000')); // only 500, needs 1000
 
-      await expect(service.convertCurrency(USER_ID, convertDto)).rejects.toThrow(
-        BadRequestException,
-      );
+      await expect(
+        service.convertCurrency(USER_ID, convertDto),
+      ).rejects.toThrow(BadRequestException);
       expect(mockQR.rollbackTransaction).toHaveBeenCalledTimes(1);
       expect(mockQR.manager.save).not.toHaveBeenCalled(); // no changes persisted
     });
 
     it('throws BadRequestException when source wallet does not exist', async () => {
       mockQR.manager.findOne
-        .mockResolvedValueOnce(null)   // no duplicate tx
-        .mockResolvedValueOnce(null);  // source wallet missing
+        .mockResolvedValueOnce(null) // no duplicate tx
+        .mockResolvedValueOnce(null); // source wallet missing
 
-      await expect(service.convertCurrency(USER_ID, convertDto)).rejects.toThrow(
-        BadRequestException,
-      );
+      await expect(
+        service.convertCurrency(USER_ID, convertDto),
+      ).rejects.toThrow(BadRequestException);
       expect(mockQR.rollbackTransaction).toHaveBeenCalledTimes(1);
     });
 
     it('creates destination wallet if it does not exist', async () => {
       mockQR.manager.findOne
-        .mockResolvedValueOnce(null)       // no duplicate tx
-        .mockResolvedValueOnce(ngnWallet)  // source wallet exists
-        .mockResolvedValueOnce(null);      // dest wallet doesn't exist
+        .mockResolvedValueOnce(null) // no duplicate tx
+        .mockResolvedValueOnce(ngnWallet) // source wallet exists
+        .mockResolvedValueOnce(null); // dest wallet doesn't exist
 
       mockFxService.getExchangeRate.mockResolvedValue(new Decimal('0.00061'));
 
@@ -235,7 +253,7 @@ describe('WalletService', () => {
 
     it('requests pessimistic_write lock on wallet reads', async () => {
       mockQR.manager.findOne
-        .mockResolvedValueOnce(null)       // idempotency
+        .mockResolvedValueOnce(null) // idempotency
         .mockResolvedValueOnce(ngnWallet)
         .mockResolvedValueOnce(makeWallet('USD', '0.0000'));
       mockFxService.getExchangeRate.mockResolvedValue(new Decimal('0.00061'));
@@ -277,7 +295,9 @@ describe('WalletService', () => {
         new Error('FX rates unavailable'),
       );
 
-      await expect(service.convertCurrency(USER_ID, convertDto)).rejects.toThrow();
+      await expect(
+        service.convertCurrency(USER_ID, convertDto),
+      ).rejects.toThrow();
 
       expect(mockQR.rollbackTransaction).toHaveBeenCalledTimes(1);
       expect(mockQR.release).toHaveBeenCalledTimes(1);

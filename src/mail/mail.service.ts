@@ -16,7 +16,9 @@ export class MailService implements OnModuleInit {
   constructor(private readonly configService: ConfigService) {}
 
   async onModuleInit(): Promise<void> {
-    const isDev = this.configService.get<string>('NODE_ENV', 'development') !== 'production';
+    const isDev =
+      this.configService.get<string>('NODE_ENV', 'development') !==
+      'production';
     const mailUser = this.configService.get<string>('MAIL_USER', '');
     const hasRealCredentials = mailUser && !mailUser.includes('your_email');
 
@@ -48,8 +50,13 @@ export class MailService implements OnModuleInit {
     }
   }
 
-  async sendOtpEmail(to: string, otp: string, firstName: string): Promise<void> {
+  async sendOtpEmail(
+    to: string,
+    otp: string,
+    firstName: string,
+  ): Promise<void> {
     try {
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
       const info = await this.transporter.sendMail({
         from: `"FX Trading App" <noreply@fxtradingapp.com>`,
         to,
@@ -70,6 +77,7 @@ export class MailService implements OnModuleInit {
         `,
       });
 
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-argument
       const previewUrl = nodemailer.getTestMessageUrl(info);
       if (previewUrl) {
         this.logger.log(`[DEV] Email preview: ${previewUrl}`);
