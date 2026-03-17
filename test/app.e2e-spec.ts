@@ -230,6 +230,59 @@ describe('E2E — full user flow', () => {
     expect(parseFloat(usdWallet!.balance)).toBeGreaterThan(0);
   });
 
+  // ─── Step 6b: trade ─────────────────────────────────────────────────────
+
+  it('POST /wallet/trade — trades NGN → USD successfully', async () => {
+    const res = await request(app.getHttpServer())
+      .post('/wallet/trade')
+      .set('Authorization', `Bearer ${accessToken}`)
+      .send({
+        fromCurrency: 'NGN',
+        toCurrency: 'USD',
+        amount: 5000,
+        idempotencyKey: `trade-${RUN_ID}`,
+      })
+      .expect(200);
+
+    expect(res.body.fromCurrency).toBe('NGN');
+    expect(res.body.toCurrency).toBe('USD');
+    expect(res.body.rateUsed).toBeDefined();
+    expect(parseFloat(res.body.fromAmount)).toBe(5000);
+    expect(parseFloat(res.body.toAmount)).toBeGreaterThan(0);
+    // transaction type must be 'trade', not 'conversion'
+    expect((res.body.transaction as { type: string }).type).toBe('trade');
+  });
+
+  it('POST /wallet/trade — rejects non-NGN pair (USD → EUR) with 400', async () => {
+    await request(app.getHttpServer())
+      .post('/wallet/trade')
+      .set('Authorization', `Bearer ${accessToken}`)
+      .send({
+        fromCurrency: 'USD',
+        toCurrency: 'EUR',
+        amount: 1,
+        idempotencyKey: `trade-invalid-${RUN_ID}`,
+      })
+      .expect(400);
+  });
+
+  it('POST /wallet/trade — idempotent (same key returns same tx)', async () => {
+    const res = await request(app.getHttpServer())
+      .post('/wallet/trade')
+      .set('Authorization', `Bearer ${accessToken}`)
+      .send({
+        fromCurrency: 'NGN',
+        toCurrency: 'USD',
+        amount: 5000,
+        idempotencyKey: `trade-${RUN_ID}`,
+      })
+      .expect(200);
+
+    expect((res.body.transaction as { idempotency_key: string }).idempotency_key).toBe(
+      `trade-${RUN_ID}`,
+    );
+  });
+
   // ─── Step 7: view transactions ──────────────────────────────────────────
 
   it('GET /transactions — returns paginated transaction history', async () => {
@@ -254,6 +307,100 @@ describe('E2E — full user flow', () => {
       (tx) => tx.type === 'funding',
     );
     expect(allFunding).toBe(true);
+  });
+});
+
+// ─── Suite: guard enforcement ────────────────────────────────────────────────
+
+describe('E2E — guard enforcement', () => {
+  let app: INestApplication<App>;
+  let ds: DataSource;
+
+  const email = testEmail('guard');
+  let unverifiedToken: string;
+
+  beforeAll(async () => {
+    const moduleFixture: TestingModule = await Test.createTestingModule({
+      imports: [AppModule],
+    }).compile();
+
+    app = moduleFixture.createNestApplication();
+    app.useGlobalPipes(
+      new ValidationPipe({
+        whitelist: true,
+        forbidNonWhitelisted: true,
+        transform: true,
+      }),
+    );
+    await app.init();
+
+    ds = moduleFixture.get(DataSource);
+    await cleanupUser(ds, email);
+
+    // Register but deliberately skip OTP verification
+    const reg = await request(app.getHttpServer()).post('/auth/register').send({
+      email,
+      password: 'Password@123',
+      firstName: 'Guard',
+      lastName: 'Test',
+    });
+    expect(reg.status).toBe(201);
+
+    // Login as unverified user to get a valid JWT
+    const login = await request(app.getHttpServer())
+      .post('/auth/login')
+      .send({ email, password: 'Password@123' });
+    expect(login.status).toBe(200);
+    unverifiedToken = login.body.accessToken as string;
+  });
+
+  afterAll(async () => {
+    await cleanupUser(ds, email);
+    await app.close();
+  });
+
+  it('GET /wallet — returns 401 without a token', async () => {
+    await request(app.getHttpServer()).get('/wallet').expect(401);
+  });
+
+  it('POST /wallet/fund — returns 401 without a token', async () => {
+    await request(app.getHttpServer()).post('/wallet/fund').expect(401);
+  });
+
+  it('POST /wallet/convert — returns 401 without a token', async () => {
+    await request(app.getHttpServer()).post('/wallet/convert').expect(401);
+  });
+
+  it('POST /wallet/trade — returns 401 without a token', async () => {
+    await request(app.getHttpServer()).post('/wallet/trade').expect(401);
+  });
+
+  it('GET /wallet — returns 403 for unverified user', async () => {
+    await request(app.getHttpServer())
+      .get('/wallet')
+      .set('Authorization', `Bearer ${unverifiedToken}`)
+      .expect(403);
+  });
+
+  it('POST /wallet/fund — returns 403 for unverified user', async () => {
+    await request(app.getHttpServer())
+      .post('/wallet/fund')
+      .set('Authorization', `Bearer ${unverifiedToken}`)
+      .send({ amount: 1000, currency: 'NGN', idempotencyKey: 'guard-fund' })
+      .expect(403);
+  });
+
+  it('POST /wallet/trade — returns 403 for unverified user', async () => {
+    await request(app.getHttpServer())
+      .post('/wallet/trade')
+      .set('Authorization', `Bearer ${unverifiedToken}`)
+      .send({
+        fromCurrency: 'NGN',
+        toCurrency: 'USD',
+        amount: 1000,
+        idempotencyKey: 'guard-trade',
+      })
+      .expect(403);
   });
 });
 
