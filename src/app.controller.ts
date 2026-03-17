@@ -1,12 +1,19 @@
 import { Controller, Get } from '@nestjs/common';
-import { AppService } from './app.service';
+import { ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
 
+@ApiTags('General')
 @Controller()
 export class AppController {
-  constructor(private readonly appService: AppService) {}
-
   @Get()
-  getHello(): string {
-    return this.appService.getHello();
+  @ApiOperation({ summary: 'API information' })
+  @ApiResponse({ status: 200, description: 'Returns API metadata.' })
+  getInfo() {
+    return {
+      name: 'FX Trading App API',
+      version: '1.0',
+      description: 'Backend API for FX currency trading and wallet management',
+      documentation: '/api/docs',
+      health: '/health',
+    };
   }
 }
