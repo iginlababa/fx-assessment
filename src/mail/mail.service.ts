@@ -1,29 +1,57 @@
-import { Injectable, InternalServerErrorException, Logger } from '@nestjs/common';
+import {
+  Injectable,
+  InternalServerErrorException,
+  Logger,
+  OnModuleInit,
+} from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import * as nodemailer from 'nodemailer';
 import { Transporter } from 'nodemailer';
 
 @Injectable()
-export class MailService {
+export class MailService implements OnModuleInit {
   private readonly logger = new Logger(MailService.name);
-  private readonly transporter: Transporter;
+  private transporter!: Transporter;
 
-  constructor(private readonly configService: ConfigService) {
-    this.transporter = nodemailer.createTransport({
-      host: this.configService.get<string>('MAIL_HOST'),
-      port: this.configService.get<number>('MAIL_PORT', 587),
-      secure: false,
-      auth: {
-        user: this.configService.get<string>('MAIL_USER'),
-        pass: this.configService.get<string>('MAIL_PASS'),
-      },
-    });
+  constructor(private readonly configService: ConfigService) {}
+
+  async onModuleInit(): Promise<void> {
+    const isDev = this.configService.get<string>('NODE_ENV', 'development') !== 'production';
+    const mailUser = this.configService.get<string>('MAIL_USER', '');
+    const hasRealCredentials = mailUser && !mailUser.includes('your_email');
+
+    if (isDev && !hasRealCredentials) {
+      // Use Ethereal test account — no real SMTP credentials required
+      const testAccount = await nodemailer.createTestAccount();
+      this.transporter = nodemailer.createTransport({
+        host: testAccount.smtp.host,
+        port: testAccount.smtp.port,
+        secure: testAccount.smtp.secure,
+        auth: {
+          user: testAccount.user,
+          pass: testAccount.pass,
+        },
+      });
+      this.logger.log(
+        `[DEV] Using Ethereal test SMTP (${testAccount.user}). Sent emails visible at https://ethereal.email`,
+      );
+    } else {
+      this.transporter = nodemailer.createTransport({
+        host: this.configService.get<string>('MAIL_HOST'),
+        port: this.configService.get<number>('MAIL_PORT', 587),
+        secure: false,
+        auth: {
+          user: mailUser,
+          pass: this.configService.get<string>('MAIL_PASS'),
+        },
+      });
+    }
   }
 
   async sendOtpEmail(to: string, otp: string, firstName: string): Promise<void> {
     try {
-      await this.transporter.sendMail({
-        from: `"FX Trading App" <${this.configService.get<string>('MAIL_USER')}>`,
+      const info = await this.transporter.sendMail({
+        from: `"FX Trading App" <noreply@fxtradingapp.com>`,
         to,
         subject: 'FX Trading App — Email Verification',
         html: `
@@ -41,6 +69,11 @@ export class MailService {
           </div>
         `,
       });
+
+      const previewUrl = nodemailer.getTestMessageUrl(info);
+      if (previewUrl) {
+        this.logger.log(`[DEV] Email preview: ${previewUrl}`);
+      }
     } catch (error) {
       this.logger.error(
         `Failed to send OTP email to ${to}: ${(error as Error).message}`,
