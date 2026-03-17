@@ -3,10 +3,15 @@ import { ConfigModule, ConfigService } from '@nestjs/config';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { CacheModule } from '@nestjs/cache-manager';
 import { ThrottlerModule } from '@nestjs/throttler';
-import { redisStore } from 'cache-manager-redis-yet';
+import KeyvRedis from '@keyv/redis';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
+import { FxModule } from './fx/fx.module';
 import { HealthModule } from './health/health.module';
+import { OtpModule } from './otp/otp.module';
+import { TransactionsModule } from './transactions/transactions.module';
+import { UsersModule } from './users/users.module';
+import { WalletModule } from './wallet/wallet.module';
 
 @Module({
   imports: [
@@ -34,27 +39,12 @@ import { HealthModule } from './health/health.module';
       isGlobal: true,
       imports: [ConfigModule],
       inject: [ConfigService],
-      useFactory: async (configService: ConfigService) => {
+      useFactory: (configService: ConfigService) => {
         const host = configService.get<string>('REDIS_HOST', 'localhost');
         const port = configService.get<number>('REDIS_PORT', 6379);
-        try {
-          const store = await redisStore({
-            socket: {
-              host,
-              port,
-              connectTimeout: 3000,
-              reconnectStrategy: false,
-            },
-          });
-          Logger.log('Connected to Redis cache', 'CacheModule');
-          return { stores: store, ttl: 300000 };
-        } catch (error) {
-          Logger.warn(
-            `Redis unavailable (${(error as Error).message}), falling back to in-memory cache`,
-            'CacheModule',
-          );
-          return { ttl: 300000 };
-        }
+        Logger.log('Connecting to Redis cache', 'CacheModule');
+        const store = new KeyvRedis(`redis://${host}:${port}`);
+        return { stores: [store], ttl: 300000 };
       },
     }),
 
@@ -66,6 +56,11 @@ import { HealthModule } from './health/health.module';
     ]),
 
     HealthModule,
+    UsersModule,
+    OtpModule,
+    WalletModule,
+    TransactionsModule,
+    FxModule,
   ],
   controllers: [AppController],
   providers: [AppService],
