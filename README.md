@@ -125,6 +125,27 @@ Full interactive documentation is available at **`http://localhost:3000/api/docs
 | GET | `/fx/rates` | No | Get current FX exchange rates |
 | GET | `/transactions` | JWT + Verified | Paginated transaction history |
 | GET | `/health` | No | Service health check |
+| GET | `/admin/users` | JWT + Admin | List all users (paginated, searchable) |
+| GET | `/admin/users/:id` | JWT + Admin | User details with wallets and transactions |
+| GET | `/admin/transactions` | JWT + Admin | All transactions system-wide |
+| GET | `/admin/stats` | JWT + Admin | System statistics dashboard |
+
+---
+
+## Role-Based Access Control
+
+The application implements RBAC with two roles:
+
+- **User** (`role: 'user'`): Default role. Can access wallet, trading, and transaction history endpoints.
+- **Admin** (`role: 'admin'`): Can access everything a user can, plus dedicated admin endpoints for user management, system-wide transaction monitoring, and statistics.
+
+Admin endpoints are protected by three guards stacked in order:
+
+1. `JwtAuthGuard` — valid JWT required
+2. `VerifiedUserGuard` — email must be verified
+3. `RolesGuard` — user role must be `admin`
+
+A default admin user is seeded on application startup (idempotent — skipped if the user already exists). Configurable via `ADMIN_EMAIL` and `ADMIN_PASSWORD` environment variables.
 
 ---
 
@@ -178,6 +199,9 @@ Redis provides sub-millisecond reads for hot traffic. If Redis is down, we fall 
 
 ### `decimal.js` for all monetary arithmetic
 JavaScript's `number` type uses IEEE 754 floating-point, which causes precision errors (`0.1 + 0.2 !== 0.3`). All balance calculations use `Decimal` objects constructed from strings, with the result converted back to a fixed-precision string for storage. This eliminates all rounding errors on financial values.
+
+### Separate Admin module
+Admin endpoints live in `src/admin/` rather than being mixed into existing controllers. This keeps the regular user API surface clean and allows blanket RBAC to be applied at the controller level with a single `@Roles(UserRole.ADMIN)` decorator. The `AdminSeedService` runs on module init to ensure a default admin account exists in every environment without manual steps.
 
 ### Dual schema strategy (synchronize vs migrations)
 Development uses `synchronize: true` for rapid iteration — no migration files needed when prototyping. Production uses `synchronize: false` with `migrationsRun: true`: migrations run automatically on app startup, schema changes are tracked in version control, and there's no risk of TypeORM silently dropping columns on a rename. The standalone `src/database/data-source.ts` file lets the TypeORM CLI generate and inspect migrations independently of the NestJS app.
