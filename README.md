@@ -1,98 +1,269 @@
-<p align="center">
-  <a href="http://nestjs.com/" target="blank"><img src="https://nestjs.com/img/logo-small.svg" width="120" alt="Nest Logo" /></a>
-</p>
+# FX Trading App — Backend API
 
-[circleci-image]: https://img.shields.io/circleci/build/github/nestjs/nest/master?token=abc123def456
-[circleci-url]: https://circleci.com/gh/nestjs/nest
+A production-ready NestJS REST API for multi-currency wallet management and FX trading. Users register, verify their email, fund wallets, convert between currencies, and view transaction history — all backed by atomic PostgreSQL transactions and real-time exchange rates.
 
-  <p align="center">A progressive <a href="http://nodejs.org" target="_blank">Node.js</a> framework for building efficient and scalable server-side applications.</p>
-    <p align="center">
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/v/@nestjs/core.svg" alt="NPM Version" /></a>
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/l/@nestjs/core.svg" alt="Package License" /></a>
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/dm/@nestjs/common.svg" alt="NPM Downloads" /></a>
-<a href="https://circleci.com/gh/nestjs/nest" target="_blank"><img src="https://img.shields.io/circleci/build/github/nestjs/nest/master" alt="CircleCI" /></a>
-<a href="https://discord.gg/G7Qnnhy" target="_blank"><img src="https://img.shields.io/badge/discord-online-brightgreen.svg" alt="Discord"/></a>
-<a href="https://opencollective.com/nest#backer" target="_blank"><img src="https://opencollective.com/nest/backers/badge.svg" alt="Backers on Open Collective" /></a>
-<a href="https://opencollective.com/nest#sponsor" target="_blank"><img src="https://opencollective.com/nest/sponsors/badge.svg" alt="Sponsors on Open Collective" /></a>
-  <a href="https://paypal.me/kamilmysliwiec" target="_blank"><img src="https://img.shields.io/badge/Donate-PayPal-ff3f59.svg" alt="Donate us"/></a>
-    <a href="https://opencollective.com/nest#sponsor"  target="_blank"><img src="https://img.shields.io/badge/Support%20us-Open%20Collective-41B883.svg" alt="Support us"></a>
-  <a href="https://twitter.com/nestframework" target="_blank"><img src="https://img.shields.io/twitter/follow/nestframework.svg?style=social&label=Follow" alt="Follow us on Twitter"></a>
-</p>
-  <!--[![Backers on Open Collective](https://opencollective.com/nest/backers/badge.svg)](https://opencollective.com/nest#backer)
-  [![Sponsors on Open Collective](https://opencollective.com/nest/sponsors/badge.svg)](https://opencollective.com/nest#sponsor)-->
+---
 
-## Description
+## Table of Contents
 
-[Nest](https://github.com/nestjs/nest) framework TypeScript starter repository.
+- [Architecture Overview](#architecture-overview)
+- [Setup Instructions](#setup-instructions)
+- [Environment Variables](#environment-variables)
+- [API Documentation](#api-documentation)
+- [Running Tests](#running-tests)
+- [Key Assumptions](#key-assumptions)
+- [Architectural Decisions](#architectural-decisions)
+- [Scalability Considerations](#scalability-considerations)
 
-## Project setup
+---
 
-```bash
-$ npm install
+## Architecture Overview
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│                        NestJS App                           │
+│                                                             │
+│  ┌──────────┐  ┌──────────┐  ┌──────────┐  ┌───────────┐  │
+│  │   Auth   │  │  Wallet  │  │    FX    │  │Transactions│  │
+│  │  Module  │  │  Module  │  │  Module  │  │  Module   │  │
+│  └────┬─────┘  └────┬─────┘  └────┬─────┘  └─────┬─────┘  │
+│       │              │              │               │        │
+│  ┌────▼──────────────▼──────────────▼───────────────▼────┐  │
+│  │                  Common Layer                          │  │
+│  │  Guards (JWT, Verified, Roles) · Decorators · Filters  │  │
+│  └────────────────────────────────────────────────────────┘  │
+└──────────────────────┬──────────────────────────────────────┘
+                       │
+          ┌────────────┼──────────────┐
+          ▼            ▼              ▼
+     PostgreSQL      Redis        open.er-api.com
+   (primary store) (rate cache)  (FX data source)
 ```
 
-## Compile and run the project
+**Modules:**
+
+| Module | Responsibility |
+|--------|---------------|
+| `AuthModule` | Registration, OTP email verification, JWT login |
+| `UsersModule` | User CRUD and email lookup |
+| `OtpModule` | 6-digit OTP generation and atomic verification |
+| `MailModule` | Transactional email via SMTP (auto Ethereal in dev) |
+| `WalletModule` | Fund, convert, trade — all atomic via QueryRunner |
+| `FxModule` | 3-tier rate fetching: Redis → API → PostgreSQL |
+| `TransactionsModule` | Paginated, filterable transaction history |
+| `HealthModule` | DB + Redis liveness check |
+
+---
+
+## Setup Instructions
+
+### Prerequisites
+
+- Node.js 18+
+- Docker and Docker Compose
+
+### 1. Clone and install
 
 ```bash
-# development
-$ npm run start
-
-# watch mode
-$ npm run start:dev
-
-# production mode
-$ npm run start:prod
+git clone <repo-url>
+cd credpal
+npm install
 ```
 
-## Run tests
+### 2. Start infrastructure
 
 ```bash
-# unit tests
-$ npm run test
-
-# e2e tests
-$ npm run test:e2e
-
-# test coverage
-$ npm run test:cov
+docker-compose up -d
 ```
 
-## Deployment
+Starts PostgreSQL 15 on port `5432` and Redis 7 on port `6379`.
 
-When you're ready to deploy your NestJS application to production, there are some key steps you can take to ensure it runs as efficiently as possible. Check out the [deployment documentation](https://docs.nestjs.com/deployment) for more information.
-
-If you are looking for a cloud-based platform to deploy your NestJS application, check out [Mau](https://mau.nestjs.com), our official platform for deploying NestJS applications on AWS. Mau makes deployment straightforward and fast, requiring just a few simple steps:
+### 3. Configure environment
 
 ```bash
-$ npm install -g @nestjs/mau
-$ mau deploy
+cp .env.example .env
 ```
 
-With Mau, you can deploy your application in just a few clicks, allowing you to focus on building features rather than managing infrastructure.
+The defaults work with the Docker Compose setup out of the box. Edit `JWT_SECRET` for production.
 
-## Resources
+### 4. Run the app
 
-Check out a few resources that may come in handy when working with NestJS:
+```bash
+npm run start:dev
+```
 
-- Visit the [NestJS Documentation](https://docs.nestjs.com) to learn more about the framework.
-- For questions and support, please visit our [Discord channel](https://discord.gg/G7Qnnhy).
-- To dive deeper and get more hands-on experience, check out our official video [courses](https://courses.nestjs.com/).
-- Deploy your application to AWS with the help of [NestJS Mau](https://mau.nestjs.com) in just a few clicks.
-- Visualize your application graph and interact with the NestJS application in real-time using [NestJS Devtools](https://devtools.nestjs.com).
-- Need help with your project (part-time to full-time)? Check out our official [enterprise support](https://enterprise.nestjs.com).
-- To stay in the loop and get updates, follow us on [X](https://x.com/nestframework) and [LinkedIn](https://linkedin.com/company/nestjs).
-- Looking for a job, or have a job to offer? Check out our official [Jobs board](https://jobs.nestjs.com).
+The app starts on `http://localhost:3000`. Database tables are auto-created via TypeORM `synchronize: true`.
 
-## Support
+### 5. Verify it's healthy
 
-Nest is an MIT-licensed open source project. It can grow thanks to the sponsors and support by the amazing backers. If you'd like to join them, please [read more here](https://docs.nestjs.com/support).
+```bash
+curl http://localhost:3000/health
+```
 
-## Stay in touch
+---
 
-- Author - [Kamil Myśliwiec](https://twitter.com/kammysliwiec)
-- Website - [https://nestjs.com](https://nestjs.com/)
-- Twitter - [@nestframework](https://twitter.com/nestframework)
+## Environment Variables
 
-## License
+| Variable | Description | Default |
+|----------|-------------|---------|
+| `PORT` | HTTP port | `3000` |
+| `NODE_ENV` | `development` or `production` | `development` |
+| `DB_HOST` | PostgreSQL host | `localhost` |
+| `DB_PORT` | PostgreSQL port | `5432` |
+| `DB_USERNAME` | PostgreSQL user | `postgres` |
+| `DB_PASSWORD` | PostgreSQL password | `postgres` |
+| `DB_NAME` | Database name | `fx_trading_app` |
+| `REDIS_HOST` | Redis host | `localhost` |
+| `REDIS_PORT` | Redis port | `6379` |
+| `JWT_SECRET` | JWT signing secret | _(required in prod)_ |
+| `JWT_ACCESS_EXPIRY` | Access token lifetime | `15m` |
+| `JWT_REFRESH_EXPIRY` | Refresh token lifetime | `7d` |
+| `MAIL_HOST` | SMTP host | _(auto Ethereal in dev)_ |
+| `MAIL_USER` | SMTP username | _(auto Ethereal in dev)_ |
+| `MAIL_PASS` | SMTP password | _(auto Ethereal in dev)_ |
+| `FX_API_BASE_URL` | Exchange rate API base URL | `https://open.er-api.com/v6/latest` |
+| `FX_RATE_CACHE_TTL` | Redis TTL for FX rates (seconds) | `300` |
+| `FX_RATE_MAX_AGE` | Max age for DB fallback rates (seconds) | `1800` |
 
-Nest is [MIT licensed](https://github.com/nestjs/nest/blob/master/LICENSE).
+> **Dev email**: If `MAIL_USER` is unset or contains the placeholder value, the app auto-creates an [Ethereal](https://ethereal.email) test account on startup. OTP preview URLs are printed to the console.
+
+---
+
+## API Documentation
+
+Swagger UI is available at:
+
+```
+http://localhost:3000/api/docs
+```
+
+### Endpoint Summary
+
+#### Auth
+
+| Method | Path | Description | Auth required |
+|--------|------|-------------|---------------|
+| `POST` | `/auth/register` | Register new user | No |
+| `POST` | `/auth/verify` | Verify email with OTP | No |
+| `POST` | `/auth/login` | Login, receive JWT tokens | No |
+| `POST` | `/auth/resend-otp` | Resend verification OTP | No |
+
+#### Wallet
+
+| Method | Path | Description | Auth required |
+|--------|------|-------------|---------------|
+| `GET` | `/wallet` | Get all wallet balances | JWT + verified email |
+| `POST` | `/wallet/fund` | Fund a currency wallet | JWT + verified email |
+| `POST` | `/wallet/convert` | Convert between any two currencies | JWT + verified email |
+| `POST` | `/wallet/trade` | Trade (must involve NGN) | JWT + verified email |
+
+#### FX Rates
+
+| Method | Path | Description | Auth required |
+|--------|------|-------------|---------------|
+| `GET` | `/fx/rates` | Get live exchange rates | No |
+
+#### Transactions
+
+| Method | Path | Description | Auth required |
+|--------|------|-------------|---------------|
+| `GET` | `/transactions` | Paginated + filtered history | JWT + verified email |
+
+#### Health
+
+| Method | Path | Description |
+|--------|------|-------------|
+| `GET` | `/health` | PostgreSQL + Redis status |
+
+---
+
+## Running Tests
+
+### Unit tests (no DB required)
+
+```bash
+npm run test
+```
+
+| Suite | Tests |
+|-------|-------|
+| `AuthService` | 10 |
+| `FxService` | 10 |
+| `WalletService` | 16 |
+| **Total** | **36** |
+
+All mocked — no real database or Redis needed.
+
+### E2E tests (requires Docker Compose stack)
+
+```bash
+docker-compose up -d   # ensure PostgreSQL + Redis are running
+npm run test:e2e
+```
+
+Covers:
+- Full flow: register → verify → login → fund → convert → balance check → transaction history
+- Concurrent double-spend prevention via pessimistic locking
+
+### Coverage report
+
+```bash
+npm run test:cov
+```
+
+---
+
+## Key Assumptions
+
+1. **Supported currencies** — `NGN`, `USD`, `EUR`, `GBP`. Wallets are created automatically on first use.
+2. **NGN as base for trades** — `/wallet/trade` requires NGN on one side (buy or sell NGN). Direct cross-currency trades (e.g. USD → EUR) use `/wallet/convert`.
+3. **Idempotency keys** — callers supply a unique key per request. Replaying the same key returns the original result without re-processing.
+4. **Email verification gate** — all wallet and transaction endpoints require `is_email_verified = true`.
+5. **4 decimal-place precision** — balances stored as `DECIMAL(20, 4)`; rates as `DECIMAL(20, 8)`. All arithmetic via `decimal.js`.
+6. **Free FX API** — `open.er-api.com` requires no API key. Rate freshness is best-effort; stale rates (> 30 min) return a `503`.
+
+---
+
+## Architectural Decisions
+
+### Atomic transactions via QueryRunner
+
+Every balance-mutating operation wraps wallet reads, balance updates, and transaction record creation in a single PostgreSQL transaction through TypeORM's `QueryRunner`. Any failure triggers a full rollback — no partial state is ever committed.
+
+### Pessimistic write locking (`SELECT ... FOR UPDATE`)
+
+Both source and destination wallets are locked before any balance check. This serializes concurrent writes to the same wallet, preventing double-spend. The E2E test suite validates this: two concurrent requests for more than the available balance result in exactly one success and one `400`.
+
+### Idempotency checked inside the transaction
+
+The idempotency key is looked up as the very first step inside the database transaction, before any wallet is read or modified. A `UNIQUE` constraint on `idempotency_key` provides a final safety net at the database level.
+
+### 3-tier FX caching
+
+```
+Request → Redis (5 min TTL)
+            └── miss → open.er-api.com
+                          └── error → PostgreSQL (max 30 min old)
+                                         └── nothing fresh → 503
+```
+
+All Redis operations are wrapped in try-catch so a Redis failure transparently falls through to the API — no request is lost.
+
+### Decimal precision
+
+TypeORM returns `DECIMAL` columns as `string`. All arithmetic uses `decimal.js` constructed from those strings, avoiding IEEE 754 floating-point errors that would corrupt monetary values.
+
+### Ethereal auto-account in development
+
+`MailService` implements `OnModuleInit`. If no real SMTP credentials are configured, it calls `nodemailer.createTestAccount()` and logs Ethereal preview URLs per sent email, removing the need for any mail setup during development.
+
+---
+
+## Scalability Considerations
+
+- **Stateless app layer** — JWT auth and Redis-shared cache allow horizontal scaling behind a load balancer with no sticky sessions.
+- **Row-level locking** — `SELECT ... FOR UPDATE` serializes writes to individual wallets without blocking unrelated wallets, keeping contention minimal.
+- **Queue-based writes (future)** — for extremely high wallet throughput, operations per wallet can be queued (e.g. BullMQ) to eliminate lock contention entirely.
+- **Read replicas** — `/transactions` and `/wallet` (reads) can be directed to a PostgreSQL read replica once traffic warrants it.
+- **Indexed queries** — transactions are indexed on `user_id` + `created_at`; the `idempotency_key` column has a `UNIQUE` index. Both support high-volume lookups without full table scans.
+- **FX cache** — rates shared in Redis across all instances reduce external API calls to near-zero under normal load.
