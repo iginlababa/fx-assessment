@@ -67,7 +67,29 @@ npm run start:dev
 # Visit http://localhost:3000/api/docs
 ```
 
-Database tables are created automatically via TypeORM `synchronize: true` (development only).
+In development (`NODE_ENV` is not `production`), TypeORM auto-syncs the schema on startup. In production, explicit migrations are used (see [Database Migrations](#database-migrations) below).
+
+---
+
+## Database Migrations
+
+In development, TypeORM auto-syncs the schema on startup (`synchronize: true`). For production, the app uses explicit migrations (`synchronize: false`, `migrationsRun: true`) which run automatically on startup.
+
+```bash
+# Generate a migration after changing entities
+npm run migration:generate -- src/database/migrations/MigrationName
+
+# Run pending migrations manually
+npm run migration:run
+
+# Revert the last migration
+npm run migration:revert
+
+# Show migration status
+npm run migration:show
+```
+
+Migration files live in `src/database/migrations/` and are compiled to `dist/database/migrations/` before the CLI runs them. The standalone DataSource config used by the CLI is at `src/database/data-source.ts`.
 
 ---
 
@@ -143,6 +165,9 @@ Redis provides sub-millisecond reads for hot traffic. If Redis is down, we fall 
 
 ### `decimal.js` for all monetary arithmetic
 JavaScript's `number` type uses IEEE 754 floating-point, which causes precision errors (`0.1 + 0.2 !== 0.3`). All balance calculations use `Decimal` objects constructed from strings, with the result converted back to a fixed-precision string for storage. This eliminates all rounding errors on financial values.
+
+### Dual schema strategy (synchronize vs migrations)
+Development uses `synchronize: true` for rapid iteration — no migration files needed when prototyping. Production uses `synchronize: false` with `migrationsRun: true`: migrations run automatically on app startup, schema changes are tracked in version control, and there's no risk of TypeORM silently dropping columns on a rename. The standalone `src/database/data-source.ts` file lets the TypeORM CLI generate and inspect migrations independently of the NestJS app.
 
 ### Trade vs Convert separation
 Both endpoints use the same underlying `convertCurrency()` method. `tradeCurrency()` adds a single business rule: one side of the pair must be NGN. This keeps the implementation DRY while enforcing the domain constraint at a clean boundary.
