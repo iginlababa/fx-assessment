@@ -6,8 +6,10 @@ import { ThrottlerModule } from '@nestjs/throttler';
 import KeyvRedis from '@keyv/redis';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
+import { AuthModule } from './auth/auth.module';
 import { FxModule } from './fx/fx.module';
 import { HealthModule } from './health/health.module';
+import { MailModule } from './mail/mail.module';
 import { OtpModule } from './otp/otp.module';
 import { TransactionsModule } from './transactions/transactions.module';
 import { UsersModule } from './users/users.module';
@@ -55,12 +57,14 @@ import { WalletModule } from './wallet/wallet.module';
       },
     ]),
 
+    MailModule,
     HealthModule,
     UsersModule,
     OtpModule,
     WalletModule,
     TransactionsModule,
     FxModule,
+    AuthModule,
   ],
   controllers: [AppController],
   providers: [AppService],

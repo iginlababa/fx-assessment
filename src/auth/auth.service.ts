@@ -97,12 +97,14 @@ export class AuthService {
       isEmailVerified: user.is_email_verified,
     };
 
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const accessToken = this.jwtService.sign(payload, {
-      expiresIn: this.configService.get<string>('JWT_ACCESS_EXPIRY', '15m'),
+      expiresIn: this.configService.get('JWT_ACCESS_EXPIRY', '15m') as any,
     });
 
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const refreshToken = this.jwtService.sign(payload, {
-      expiresIn: this.configService.get<string>('JWT_REFRESH_EXPIRY', '7d'),
+      expiresIn: this.configService.get('JWT_REFRESH_EXPIRY', '7d') as any,
     });
 
     return {
