@@ -38,7 +38,8 @@ export class FxService {
   private async fetchRatesFromApi(
     baseCurrency: string,
   ): Promise<Record<string, number> | null> {
-    const url = `https://open.er-api.com/v6/latest/${baseCurrency}`;
+    const baseUrl = this.configService.get<string>('FX_API_BASE_URL', 'https://open.er-api.com/v6/latest');
+    const url = `${baseUrl}/${baseCurrency}`;
 
     try {
       this.logger.log(`Fetching FX rates from API for base: ${baseCurrency}`);
