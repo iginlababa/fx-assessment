@@ -13,28 +13,28 @@ import { OtpType } from '../enums/otp-type.enum';
 @Entity('otp_codes')
 export class Otp {
   @PrimaryGeneratedColumn('uuid')
-  id: string;
+  id!: string;
 
   @Index()
   @Column({ type: 'uuid', name: 'user_id' })
-  user_id: string;
+  user_id!: string;
 
   @ManyToOne(() => User)
   @JoinColumn({ name: 'user_id' })
-  user: User;
+  user!: User;
 
   @Column({ type: 'varchar', length: 6 })
-  code: string;
+  code!: string;
 
   @Column({ type: 'enum', enum: OtpType })
-  type: OtpType;
+  type!: OtpType;
 
   @Column({ type: 'timestamp', name: 'expires_at' })
-  expires_at: Date;
+  expires_at!: Date;
 
   @Column({ type: 'boolean', default: false, name: 'is_used' })
-  is_used: boolean;
+  is_used!: boolean;
 
   @CreateDateColumn({ name: 'created_at' })
-  created_at: Date;
+  created_at!: Date;
 }
