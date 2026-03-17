@@ -1,4 +1,4 @@
-import { Module } from '@nestjs/common';
+import { Logger, Module } from '@nestjs/common';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { CacheModule } from '@nestjs/cache-manager';
@@ -33,15 +33,28 @@ import { AppService } from './app.service';
       isGlobal: true,
       imports: [ConfigModule],
       inject: [ConfigService],
-      useFactory: async (configService: ConfigService) => ({
-        stores: await redisStore({
-          socket: {
-            host: configService.get<string>('REDIS_HOST'),
-            port: configService.get<number>('REDIS_PORT'),
-          },
-        }),
-        ttl: 300000,
-      }),
+      useFactory: async (configService: ConfigService) => {
+        const host = configService.get<string>('REDIS_HOST', 'localhost');
+        const port = configService.get<number>('REDIS_PORT', 6379);
+        try {
+          const store = await redisStore({
+            socket: {
+              host,
+              port,
+              connectTimeout: 3000,
+              reconnectStrategy: false,
+            },
+          });
+          Logger.log('Connected to Redis cache', 'CacheModule');
+          return { stores: store, ttl: 300000 };
+        } catch (error) {
+          Logger.warn(
+            `Redis unavailable (${(error as Error).message}), falling back to in-memory cache`,
+            'CacheModule',
+          );
+          return { ttl: 300000 };
+        }
+      },
     }),
 
     ThrottlerModule.forRoot([
