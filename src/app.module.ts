@@ -5,6 +5,7 @@ import { CacheModule } from '@nestjs/cache-manager';
 import { ThrottlerModule } from '@nestjs/throttler';
 import KeyvRedis from '@keyv/redis';
 import { AppController } from './app.controller';
+import { AdminModule } from './admin/admin.module';
 import { AuthModule } from './auth/auth.module';
 import { FxModule } from './fx/fx.module';
 import { HealthModule } from './health/health.module';
@@ -58,6 +59,7 @@ import { WalletModule } from './wallet/wallet.module';
       },
     ]),
 
+    AdminModule,
     MailModule,
     HealthModule,
     UsersModule,
