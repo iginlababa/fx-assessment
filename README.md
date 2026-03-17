@@ -1,269 +1,198 @@
 # FX Trading App — Backend API
 
-A production-ready NestJS REST API for multi-currency wallet management and FX trading. Users register, verify their email, fund wallets, convert between currencies, and view transaction history — all backed by atomic PostgreSQL transactions and real-time exchange rates.
+A production-grade backend for an FX (Foreign Exchange) trading application built with NestJS, TypeORM, and PostgreSQL. Users can register, verify their email, fund multi-currency wallets, and trade/convert between Naira (NGN) and international currencies using real-time exchange rates.
 
 ---
 
-## Table of Contents
+## Tech Stack
 
-- [Architecture Overview](#architecture-overview)
-- [Setup Instructions](#setup-instructions)
-- [Environment Variables](#environment-variables)
-- [API Documentation](#api-documentation)
-- [Running Tests](#running-tests)
-- [Key Assumptions](#key-assumptions)
-- [Architectural Decisions](#architectural-decisions)
-- [Scalability Considerations](#scalability-considerations)
+| Layer | Technology |
+|-------|------------|
+| Framework | NestJS (TypeScript, strict mode) |
+| ORM | TypeORM |
+| Database | PostgreSQL 15 |
+| Cache | Redis 7 |
+| Auth | JWT (access + refresh tokens) via `@nestjs/passport` |
+| Validation | `class-validator` + `class-transformer` |
+| Decimal math | `decimal.js` |
+| Email | Nodemailer (Ethereal in dev, SMTP in prod) |
+| API Docs | Swagger (`@nestjs/swagger`) |
+| Infrastructure | Docker Compose |
+| Testing | Jest (unit) + Supertest (E2E) |
 
 ---
 
 ## Architecture Overview
 
 ```
-┌─────────────────────────────────────────────────────────────┐
-│                        NestJS App                           │
-│                                                             │
-│  ┌──────────┐  ┌──────────┐  ┌──────────┐  ┌───────────┐  │
-│  │   Auth   │  │  Wallet  │  │    FX    │  │Transactions│  │
-│  │  Module  │  │  Module  │  │  Module  │  │  Module   │  │
-│  └────┬─────┘  └────┬─────┘  └────┬─────┘  └─────┬─────┘  │
-│       │              │              │               │        │
-│  ┌────▼──────────────▼──────────────▼───────────────▼────┐  │
-│  │                  Common Layer                          │  │
-│  │  Guards (JWT, Verified, Roles) · Decorators · Filters  │  │
-│  └────────────────────────────────────────────────────────┘  │
-└──────────────────────┬──────────────────────────────────────┘
-                       │
-          ┌────────────┼──────────────┐
-          ▼            ▼              ▼
-     PostgreSQL      Redis        open.er-api.com
-   (primary store) (rate cache)  (FX data source)
+src/
+├── auth/          # Registration, login, OTP verification, JWT strategy
+├── users/         # User entity and service
+├── otp/           # OTP generation, validation, expiry
+├── mail/          # Email service (Nodemailer SMTP)
+├── wallet/        # Multi-currency wallets, funding, conversion, trading
+├── fx/            # Real-time FX rates with 3-tier caching
+├── transactions/  # Transaction history with pagination
+├── health/        # Health check endpoint
+└── common/        # Guards, decorators, filters, constants
 ```
 
-**Modules:**
-
-| Module | Responsibility |
-|--------|---------------|
-| `AuthModule` | Registration, OTP email verification, JWT login |
-| `UsersModule` | User CRUD and email lookup |
-| `OtpModule` | 6-digit OTP generation and atomic verification |
-| `MailModule` | Transactional email via SMTP (auto Ethereal in dev) |
-| `WalletModule` | Fund, convert, trade — all atomic via QueryRunner |
-| `FxModule` | 3-tier rate fetching: Redis → API → PostgreSQL |
-| `TransactionsModule` | Paginated, filterable transaction history |
-| `HealthModule` | DB + Redis liveness check |
+Each domain is a self-contained NestJS module with its own controller, service, DTOs, and entities. The `common/` directory provides shared infrastructure: `JwtAuthGuard`, `VerifiedUserGuard`, `RolesGuard`, `@CurrentUser()` decorator, and the global `HttpExceptionFilter`.
 
 ---
 
 ## Setup Instructions
 
-### Prerequisites
-
-- Node.js 18+
-- Docker and Docker Compose
-
-### 1. Clone and install
+**Prerequisites**: Node.js 18+, Docker, Docker Compose
 
 ```bash
+# 1. Clone the repository
 git clone <repo-url>
-cd credpal
+cd fx-trading-app
+
+# 2. Install dependencies
 npm install
-```
 
-### 2. Start infrastructure
-
-```bash
-docker-compose up -d
-```
-
-Starts PostgreSQL 15 on port `5432` and Redis 7 on port `6379`.
-
-### 3. Configure environment
-
-```bash
+# 3. Set up environment variables
 cp .env.example .env
-```
+# Defaults work for the local Docker setup — edit JWT_SECRET for production
 
-The defaults work with the Docker Compose setup out of the box. Edit `JWT_SECRET` for production.
+# 4. Start infrastructure (PostgreSQL + Redis)
+docker-compose up -d
 
-### 4. Run the app
-
-```bash
+# 5. Start the application
 npm run start:dev
+
+# 6. Open API docs
+# Visit http://localhost:3000/api/docs
 ```
 
-The app starts on `http://localhost:3000`. Database tables are auto-created via TypeORM `synchronize: true`.
-
-### 5. Verify it's healthy
-
-```bash
-curl http://localhost:3000/health
-```
-
----
-
-## Environment Variables
-
-| Variable | Description | Default |
-|----------|-------------|---------|
-| `PORT` | HTTP port | `3000` |
-| `NODE_ENV` | `development` or `production` | `development` |
-| `DB_HOST` | PostgreSQL host | `localhost` |
-| `DB_PORT` | PostgreSQL port | `5432` |
-| `DB_USERNAME` | PostgreSQL user | `postgres` |
-| `DB_PASSWORD` | PostgreSQL password | `postgres` |
-| `DB_NAME` | Database name | `fx_trading_app` |
-| `REDIS_HOST` | Redis host | `localhost` |
-| `REDIS_PORT` | Redis port | `6379` |
-| `JWT_SECRET` | JWT signing secret | _(required in prod)_ |
-| `JWT_ACCESS_EXPIRY` | Access token lifetime | `15m` |
-| `JWT_REFRESH_EXPIRY` | Refresh token lifetime | `7d` |
-| `MAIL_HOST` | SMTP host | _(auto Ethereal in dev)_ |
-| `MAIL_USER` | SMTP username | _(auto Ethereal in dev)_ |
-| `MAIL_PASS` | SMTP password | _(auto Ethereal in dev)_ |
-| `FX_API_BASE_URL` | Exchange rate API base URL | `https://open.er-api.com/v6/latest` |
-| `FX_RATE_CACHE_TTL` | Redis TTL for FX rates (seconds) | `300` |
-| `FX_RATE_MAX_AGE` | Max age for DB fallback rates (seconds) | `1800` |
-
-> **Dev email**: If `MAIL_USER` is unset or contains the placeholder value, the app auto-creates an [Ethereal](https://ethereal.email) test account on startup. OTP preview URLs are printed to the console.
+Database tables are created automatically via TypeORM `synchronize: true` (development only).
 
 ---
 
 ## API Documentation
 
-Swagger UI is available at:
-
-```
-http://localhost:3000/api/docs
-```
+Full interactive documentation is available at **`http://localhost:3000/api/docs`** (Swagger UI).
 
 ### Endpoint Summary
 
-#### Auth
-
-| Method | Path | Description | Auth required |
-|--------|------|-------------|---------------|
-| `POST` | `/auth/register` | Register new user | No |
-| `POST` | `/auth/verify` | Verify email with OTP | No |
-| `POST` | `/auth/login` | Login, receive JWT tokens | No |
-| `POST` | `/auth/resend-otp` | Resend verification OTP | No |
-
-#### Wallet
-
-| Method | Path | Description | Auth required |
-|--------|------|-------------|---------------|
-| `GET` | `/wallet` | Get all wallet balances | JWT + verified email |
-| `POST` | `/wallet/fund` | Fund a currency wallet | JWT + verified email |
-| `POST` | `/wallet/convert` | Convert between any two currencies | JWT + verified email |
-| `POST` | `/wallet/trade` | Trade (must involve NGN) | JWT + verified email |
-
-#### FX Rates
-
-| Method | Path | Description | Auth required |
-|--------|------|-------------|---------------|
-| `GET` | `/fx/rates` | Get live exchange rates | No |
-
-#### Transactions
-
-| Method | Path | Description | Auth required |
-|--------|------|-------------|---------------|
-| `GET` | `/transactions` | Paginated + filtered history | JWT + verified email |
-
-#### Health
-
-| Method | Path | Description |
-|--------|------|-------------|
-| `GET` | `/health` | PostgreSQL + Redis status |
-
----
-
-## Running Tests
-
-### Unit tests (no DB required)
-
-```bash
-npm run test
-```
-
-| Suite | Tests |
-|-------|-------|
-| `AuthService` | 10 |
-| `FxService` | 10 |
-| `WalletService` | 16 |
-| **Total** | **36** |
-
-All mocked — no real database or Redis needed.
-
-### E2E tests (requires Docker Compose stack)
-
-```bash
-docker-compose up -d   # ensure PostgreSQL + Redis are running
-npm run test:e2e
-```
-
-Covers:
-- Full flow: register → verify → login → fund → convert → balance check → transaction history
-- Concurrent double-spend prevention via pessimistic locking
-
-### Coverage report
-
-```bash
-npm run test:cov
-```
+| Method | Endpoint | Auth | Description |
+|--------|----------|------|-------------|
+| POST | `/auth/register` | No | Register and receive OTP via email |
+| POST | `/auth/verify` | No | Verify email with OTP |
+| POST | `/auth/login` | No | Login and receive JWT tokens |
+| POST | `/auth/resend-otp` | No | Resend verification OTP |
+| GET | `/wallet` | JWT + Verified | Get all wallet balances |
+| POST | `/wallet/fund` | JWT + Verified | Fund a wallet |
+| POST | `/wallet/convert` | JWT + Verified | Convert between any two currencies |
+| POST | `/wallet/trade` | JWT + Verified | Trade involving NGN |
+| GET | `/fx/rates` | No | Get current FX exchange rates |
+| GET | `/transactions` | JWT + Verified | Paginated transaction history |
+| GET | `/health` | No | Service health check |
 
 ---
 
 ## Key Assumptions
 
-1. **Supported currencies** — `NGN`, `USD`, `EUR`, `GBP`. Wallets are created automatically on first use.
-2. **NGN as base for trades** — `/wallet/trade` requires NGN on one side (buy or sell NGN). Direct cross-currency trades (e.g. USD → EUR) use `/wallet/convert`.
-3. **Idempotency keys** — callers supply a unique key per request. Replaying the same key returns the original result without re-processing.
-4. **Email verification gate** — all wallet and transaction endpoints require `is_email_verified = true`.
-5. **4 decimal-place precision** — balances stored as `DECIMAL(20, 4)`; rates as `DECIMAL(20, 8)`. All arithmetic via `decimal.js`.
-6. **Free FX API** — `open.er-api.com` requires no API key. Rate freshness is best-effort; stale rates (> 30 min) return a `503`.
+1. **Wallet funding is simulated** — there is no real payment gateway integration. `POST /wallet/fund` directly credits the balance. This is intentional for an assessment context.
+
+2. **FX rates are cached for 5 minutes.** All conversions within that window use the same cached rate. This avoids hammering the external API while keeping rates reasonably fresh.
+
+3. **The trade endpoint enforces the NGN constraint.** `POST /wallet/trade` requires that one side of every pair is NGN (either buying or selling Naira). `POST /wallet/convert` has no such restriction and accepts any valid currency pair.
+
+4. **OTPs expire after 10 minutes.** Only the most recently generated, unused OTP is valid. Requesting a new OTP via `/auth/resend-otp` invalidates all previous ones.
+
+5. **All monetary values use `DECIMAL(18, 4)`.** Balances are stored and returned as strings to preserve precision — never floating-point.
+
+6. **Exchange rates use `DECIMAL(18, 8)`.** This provides enough precision for pairs like NGN/USD where the rate is in the 0.0006xxxx range.
+
+7. **Supported currencies at launch: NGN, USD, EUR, GBP.** Adding more requires a single change to the `SUPPORTED_CURRENCIES` constant in `src/common/constants/currencies.ts`. No schema migration is needed.
+
+8. **JWT access tokens expire in 15 minutes; refresh tokens in 7 days.** These are configurable via `JWT_ACCESS_EXPIRY` and `JWT_REFRESH_EXPIRY` in `.env`.
+
+9. **Redis is optional.** The app falls back to in-memory caching if Redis is unavailable. This means it boots and functions without Redis, at the cost of per-instance (non-shared) rate caching.
 
 ---
 
 ## Architectural Decisions
 
-### Atomic transactions via QueryRunner
+### PostgreSQL over MySQL
+Better support for `DECIMAL` precision types, `SELECT ... FOR UPDATE` row-level locking, `JSONB` for transaction metadata, and more mature TypeORM integration.
 
-Every balance-mutating operation wraps wallet reads, balance updates, and transaction record creation in a single PostgreSQL transaction through TypeORM's `QueryRunner`. Any failure triggers a full rollback — no partial state is ever committed.
+### Vertical wallet model (one row per user per currency)
+Rather than adding a column per currency, each wallet is its own row with a `(user_id, currency)` unique constraint. Adding a new currency requires zero schema migrations — just a config change. This also makes balance reads and writes far simpler.
 
-### Pessimistic write locking (`SELECT ... FOR UPDATE`)
+### Pessimistic locking (`SELECT ... FOR UPDATE`)
+Every balance read before a mutation uses `pessimistic_write` lock mode. This serializes concurrent writes to the same wallet row at the database level — preventing two simultaneous conversions from reading the same starting balance and both succeeding when only one should. The E2E concurrent double-spend test validates this.
 
-Both source and destination wallets are locked before any balance check. This serializes concurrent writes to the same wallet, preventing double-spend. The E2E test suite validates this: two concurrent requests for more than the available balance result in exactly one success and one `400`.
+### QueryRunner transactions
+All balance mutations (fund, convert, trade) use a TypeORM `QueryRunner` to wrap the entire operation — wallet reads, balance updates, and transaction record creation — in a single atomic database transaction. If any step fails, the entire operation rolls back. No partial state is ever persisted.
 
-### Idempotency checked inside the transaction
+### Idempotency keys
+Every write endpoint requires a client-supplied idempotency key. The key is checked as the first step inside the database transaction. If a record with that key already exists, the original result is returned immediately without reprocessing. A `UNIQUE` constraint on `idempotency_key` serves as the final safety net, even if two requests race past the check. This makes retry-safe API calls trivial to implement on the client.
 
-The idempotency key is looked up as the very first step inside the database transaction, before any wallet is read or modified. A `UNIQUE` constraint on `idempotency_key` provides a final safety net at the database level.
-
-### 3-tier FX caching
-
+### 3-tier FX rate caching (Redis → API → DB)
 ```
 Request → Redis (5 min TTL)
-            └── miss → open.er-api.com
-                          └── error → PostgreSQL (max 30 min old)
-                                         └── nothing fresh → 503
+              └── miss → open.er-api.com
+                            └── error → PostgreSQL fx_rates_cache (< 30 min old)
+                                            └── nothing fresh → 503
 ```
+Redis provides sub-millisecond reads for hot traffic. If Redis is down, we fall through to the API. If the API is down, we use the most recent persisted rate from the database. If all three fail, we return a `503` rather than silently using stale data for a trade. All Redis operations are wrapped in try-catch — a Redis failure is non-fatal.
 
-All Redis operations are wrapped in try-catch so a Redis failure transparently falls through to the API — no request is lost.
+### `decimal.js` for all monetary arithmetic
+JavaScript's `number` type uses IEEE 754 floating-point, which causes precision errors (`0.1 + 0.2 !== 0.3`). All balance calculations use `Decimal` objects constructed from strings, with the result converted back to a fixed-precision string for storage. This eliminates all rounding errors on financial values.
 
-### Decimal precision
+### Trade vs Convert separation
+Both endpoints use the same underlying `convertCurrency()` method. `tradeCurrency()` adds a single business rule: one side of the pair must be NGN. This keeps the implementation DRY while enforcing the domain constraint at a clean boundary.
 
-TypeORM returns `DECIMAL` columns as `string`. All arithmetic uses `decimal.js` constructed from those strings, avoiding IEEE 754 floating-point errors that would corrupt monetary values.
+---
 
-### Ethereal auto-account in development
+## Security Considerations
 
-`MailService` implements `OnModuleInit`. If no real SMTP credentials are configured, it calls `nodemailer.createTestAccount()` and logs Ethereal preview URLs per sent email, removing the need for any mail setup during development.
+- **Passwords** hashed with bcrypt at 12 salt rounds
+- **Short-lived access tokens** (15 min) minimise exposure if a token is leaked
+- **Email verification required** before accessing any trading feature
+- **Rate limiting** on auth endpoints (5 req/min on register/login, 3/min on resend-otp) to prevent brute-force
+- **Input validation** on every endpoint via `class-validator` + global `ValidationPipe`
+- **Helmet** middleware sets security-relevant HTTP headers
+- **CORS** configured to restrict allowed origins
+- **Atomic OTP verification** via `UPDATE ... RETURNING` — prevents two concurrent verify requests from both succeeding with the same OTP
+- **Error messages don't leak field specifics** — wrong email and wrong password produce the same `401` message
 
 ---
 
 ## Scalability Considerations
 
-- **Stateless app layer** — JWT auth and Redis-shared cache allow horizontal scaling behind a load balancer with no sticky sessions.
-- **Row-level locking** — `SELECT ... FOR UPDATE` serializes writes to individual wallets without blocking unrelated wallets, keeping contention minimal.
-- **Queue-based writes (future)** — for extremely high wallet throughput, operations per wallet can be queued (e.g. BullMQ) to eliminate lock contention entirely.
-- **Read replicas** — `/transactions` and `/wallet` (reads) can be directed to a PostgreSQL read replica once traffic warrants it.
-- **Indexed queries** — transactions are indexed on `user_id` + `created_at`; the `idempotency_key` column has a `UNIQUE` index. Both support high-volume lookups without full table scans.
-- **FX cache** — rates shared in Redis across all instances reduce external API calls to near-zero under normal load.
+- **Stateless app layer** — JWT-based auth with Redis-shared cache means any number of instances can run behind a load balancer with no sticky sessions
+- **Row-level locking** — `SELECT ... FOR UPDATE` serializes writes to individual wallet rows without blocking other wallets; contention is wallet-scoped, not table-scoped
+- **Connection pooling** — TypeORM manages a PostgreSQL connection pool; `extra: { max: N }` in the TypeORM config can be tuned for high-throughput workloads
+- **Read replicas** — balance checks and transaction history reads can be directed to a PostgreSQL read replica; write operations stay on the primary
+- **FX rate background job** — rate fetching could move to a scheduled cron to pre-warm the cache and avoid thundering-herd cache expiry under heavy load
+- **Transactions table partitioning** — for millions of rows, partition `transactions` by `created_at` (e.g., monthly) to keep history queries fast without full table scans
+- **Async email** — `MailService.sendOtpEmail()` is called in-request; for scale, push emails to a message queue (e.g., BullMQ) and process them out-of-band
+
+---
+
+## Running Tests
+
+```bash
+# Unit tests (no DB or Redis needed)
+npm run test
+
+# E2E tests (requires PostgreSQL + Redis via docker-compose up -d)
+npm run test:e2e
+
+# Coverage report
+npm run test:cov
+```
+
+| Test suite | Count |
+|------------|-------|
+| AuthService unit tests | 10 |
+| FxService unit tests | 10 |
+| WalletService unit tests | 16 |
+| E2E — full user flow | 13 |
+| E2E — concurrent double-spend prevention | 1 |
+| **Total** | **50** |
