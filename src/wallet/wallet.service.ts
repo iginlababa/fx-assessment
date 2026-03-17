@@ -9,4 +9,13 @@ export class WalletService {
     @InjectRepository(Wallet)
     private readonly walletRepository: Repository<Wallet>,
   ) {}
+
+  async createWallet(userId: string, currency: string): Promise<Wallet> {
+    const wallet = this.walletRepository.create({
+      user_id: userId,
+      currency,
+      balance: '0',
+    });
+    return this.walletRepository.save(wallet);
+  }
 }
