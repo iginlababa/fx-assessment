@@ -6,6 +6,7 @@ import { ThrottlerModule } from '@nestjs/throttler';
 import { redisStore } from 'cache-manager-redis-yet';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
+import { HealthModule } from './health/health.module';
 
 @Module({
   imports: [
@@ -63,6 +64,8 @@ import { AppService } from './app.service';
         limit: 10,
       },
     ]),
+
+    HealthModule,
   ],
   controllers: [AppController],
   providers: [AppService],
