@@ -41,6 +41,19 @@ Each domain is a self-contained NestJS module with its own controller, service, 
 
 ---
 
+## Flow Diagrams
+
+Detailed architectural and flow diagrams are available in [`docs/architecture.md`](docs/architecture.md), including:
+
+- System architecture overview
+- Registration & verification flow
+- Currency conversion flow (with pessimistic locking)
+- FX rate 3-tier caching strategy
+- Wallet funding flow
+- Entity relationship diagram
+
+---
+
 ## Setup Instructions
 
 **Prerequisites**: Node.js 18+, Docker, Docker Compose
@@ -48,7 +61,7 @@ Each domain is a self-contained NestJS module with its own controller, service, 
 ```bash
 # 1. Clone the repository
 git clone <repo-url>
-cd fx-trading-app
+cd fx-assessment
 
 # 2. Install dependencies
 npm install
@@ -58,7 +71,7 @@ cp .env.example .env
 # Defaults work for the local Docker setup — edit JWT_SECRET for production
 
 # 4. Start infrastructure (PostgreSQL + Redis)
-docker-compose up -d
+docker compose up -d
 
 # 5. Start the application
 npm run start:dev
