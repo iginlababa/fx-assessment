@@ -1,9 +1,5 @@
 import { Body, Controller, HttpCode, HttpStatus, Post } from '@nestjs/common';
-import {
-  ApiOperation,
-  ApiResponse,
-  ApiTags,
-} from '@nestjs/swagger';
+import { ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { Throttle } from '@nestjs/throttler';
 import { AuthService } from './auth.service';
 import { LoginDto } from './dto/login.dto';
@@ -47,7 +43,10 @@ export class AuthController {
     description: 'Email verified successfully.',
     schema: { example: { message: 'Email verified successfully.' } },
   })
-  @ApiResponse({ status: 400, description: 'Invalid or expired OTP / already verified' })
+  @ApiResponse({
+    status: 400,
+    description: 'Invalid or expired OTP / already verified',
+  })
   @ApiResponse({ status: 404, description: 'User not found' })
   verifyEmail(@Body() dto: VerifyOtpDto) {
     return this.authService.verifyEmail({ email: dto.email, otp: dto.otp });

@@ -58,7 +58,9 @@ export class WalletController {
 
   @Post('fund')
   @HttpCode(HttpStatus.OK)
-  @ApiOperation({ summary: 'Fund a wallet with a specified currency and amount' })
+  @ApiOperation({
+    summary: 'Fund a wallet with a specified currency and amount',
+  })
   @ApiResponse({
     status: 200,
     description: 'Wallet funded successfully.',
@@ -88,7 +90,8 @@ export class WalletController {
   @HttpCode(HttpStatus.OK)
   @ApiOperation({
     summary: 'Convert between any two supported currencies',
-    description: 'Atomically debit source wallet and credit destination wallet. Uses pessimistic locking to prevent double-spending.',
+    description:
+      'Atomically debit source wallet and credit destination wallet. Uses pessimistic locking to prevent double-spending.',
   })
   @ApiResponse({
     status: 200,
@@ -104,11 +107,17 @@ export class WalletController {
       },
     },
   })
-  @ApiResponse({ status: 400, description: 'Insufficient balance / same currency' })
+  @ApiResponse({
+    status: 400,
+    description: 'Insufficient balance / same currency',
+  })
   @ApiResponse({ status: 401, description: 'Unauthorized' })
   @ApiResponse({ status: 403, description: 'Email not verified' })
   @ApiResponse({ status: 503, description: 'FX rates unavailable' })
-  convertCurrency(@CurrentUser() user: AuthUser, @Body() dto: ConvertCurrencyDto) {
+  convertCurrency(
+    @CurrentUser() user: AuthUser,
+    @Body() dto: ConvertCurrencyDto,
+  ) {
     return this.walletService.convertCurrency(user.id, dto);
   }
 
@@ -116,7 +125,8 @@ export class WalletController {
   @HttpCode(HttpStatus.OK)
   @ApiOperation({
     summary: 'Trade currencies — one side must be NGN',
-    description: 'Same as convert but enforces that either fromCurrency or toCurrency is NGN.',
+    description:
+      'Same as convert but enforces that either fromCurrency or toCurrency is NGN.',
   })
   @ApiResponse({
     status: 200,
@@ -132,7 +142,10 @@ export class WalletController {
       },
     },
   })
-  @ApiResponse({ status: 400, description: 'Insufficient balance / neither currency is NGN' })
+  @ApiResponse({
+    status: 400,
+    description: 'Insufficient balance / neither currency is NGN',
+  })
   @ApiResponse({ status: 401, description: 'Unauthorized' })
   @ApiResponse({ status: 403, description: 'Email not verified' })
   @ApiResponse({ status: 503, description: 'FX rates unavailable' })

@@ -36,7 +36,11 @@ export class OtpService {
     return code;
   }
 
-  async verifyOtp(userId: string, code: string, type: OtpType): Promise<boolean> {
+  async verifyOtp(
+    userId: string,
+    code: string,
+    type: OtpType,
+  ): Promise<boolean> {
     // Atomic: find valid OTP and mark used in a single UPDATE ... RETURNING
     const result: Array<{ id: string }> = await this.otpRepository.query(
       `UPDATE otp_codes

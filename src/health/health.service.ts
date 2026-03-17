@@ -40,7 +40,9 @@ export class HealthService {
       await this.dataSource.query('SELECT 1');
       return 'connected';
     } catch (error) {
-      this.logger.warn(`Database health check failed: ${(error as Error).message}`);
+      this.logger.warn(
+        `Database health check failed: ${(error as Error).message}`,
+      );
       return 'disconnected';
     }
   }
@@ -56,7 +58,9 @@ export class HealthService {
       await client.ping();
       return 'connected';
     } catch (error) {
-      this.logger.warn(`Redis health check failed: ${(error as Error).message}`);
+      this.logger.warn(
+        `Redis health check failed: ${(error as Error).message}`,
+      );
       return 'disconnected';
     } finally {
       await client.disconnect().catch(() => undefined);

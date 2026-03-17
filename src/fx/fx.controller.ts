@@ -1,10 +1,5 @@
 import { Controller, Get, Query } from '@nestjs/common';
-import {
-  ApiOperation,
-  ApiQuery,
-  ApiResponse,
-  ApiTags,
-} from '@nestjs/swagger';
+import { ApiOperation, ApiQuery, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { GetRatesQueryDto } from './dto/get-rates-query.dto';
 import { FxService } from './fx.service';
 
@@ -19,8 +14,18 @@ export class FxController {
     description:
       'Returns current exchange rates for a base currency. Uses a 3-tier cache: Redis → DB (30min stale) → 503.',
   })
-  @ApiQuery({ name: 'base', required: false, example: 'NGN', description: 'Base currency (default: NGN)' })
-  @ApiQuery({ name: 'symbols', required: false, example: 'USD,EUR,GBP', description: 'Comma-separated target currencies' })
+  @ApiQuery({
+    name: 'base',
+    required: false,
+    example: 'NGN',
+    description: 'Base currency (default: NGN)',
+  })
+  @ApiQuery({
+    name: 'symbols',
+    required: false,
+    example: 'USD,EUR,GBP',
+    description: 'Comma-separated target currencies',
+  })
   @ApiResponse({
     status: 200,
     description: 'Exchange rates returned successfully.',
@@ -36,10 +41,16 @@ export class FxController {
       },
     },
   })
-  @ApiResponse({ status: 503, description: 'FX rates temporarily unavailable.' })
+  @ApiResponse({
+    status: 503,
+    description: 'FX rates temporarily unavailable.',
+  })
   getRates(@Query() query: GetRatesQueryDto) {
     const symbols = query.symbols
-      ? query.symbols.split(',').map((s) => s.trim().toUpperCase()).filter(Boolean)
+      ? query.symbols
+          .split(',')
+          .map((s) => s.trim().toUpperCase())
+          .filter(Boolean)
       : undefined;
 
     return this.fxService.getRates(query.base.toUpperCase(), symbols);

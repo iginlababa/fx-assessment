@@ -55,7 +55,8 @@ describe('FxService', () => {
     httpService = { get: jest.fn() };
     configService = {
       get: jest.fn().mockImplementation((key: string, def?: unknown) => {
-        if (key === 'FX_API_BASE_URL') return 'https://open.er-api.com/v6/latest';
+        if (key === 'FX_API_BASE_URL')
+          return 'https://open.er-api.com/v6/latest';
         if (key === 'FX_RATE_CACHE_TTL') return 300;
         if (key === 'FX_RATE_MAX_AGE') return 1800;
         return def;
@@ -117,7 +118,9 @@ describe('FxService', () => {
 
     it('falls back to DB when API fails and Redis is empty', async () => {
       cacheManager.get.mockResolvedValue(undefined);
-      httpService.get.mockReturnValue(throwError(() => new Error('Network error')));
+      httpService.get.mockReturnValue(
+        throwError(() => new Error('Network error')),
+      );
       mockQb.getOne.mockResolvedValue({
         rate: '0.00061000',
         fetched_at: new Date(),

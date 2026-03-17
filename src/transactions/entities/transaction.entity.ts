@@ -40,17 +40,35 @@ export class Transaction {
   @Column({ type: 'varchar', length: 3, name: 'to_currency' })
   to_currency!: string;
 
-  @Column({ type: 'decimal', precision: 18, scale: 4, nullable: true, name: 'from_amount' })
+  @Column({
+    type: 'decimal',
+    precision: 18,
+    scale: 4,
+    nullable: true,
+    name: 'from_amount',
+  })
   from_amount!: string | null;
 
   @Column({ type: 'decimal', precision: 18, scale: 4, name: 'to_amount' })
   to_amount!: string;
 
-  @Column({ type: 'decimal', precision: 18, scale: 8, nullable: true, name: 'exchange_rate' })
+  @Column({
+    type: 'decimal',
+    precision: 18,
+    scale: 8,
+    nullable: true,
+    name: 'exchange_rate',
+  })
   exchange_rate!: string | null;
 
   @Index()
-  @Column({ type: 'varchar', length: 255, unique: true, nullable: true, name: 'idempotency_key' })
+  @Column({
+    type: 'varchar',
+    length: 255,
+    unique: true,
+    nullable: true,
+    name: 'idempotency_key',
+  })
   idempotency_key!: string | null;
 
   @Column({ type: 'jsonb', nullable: true })

@@ -47,7 +47,10 @@ export class AuthService {
 
     await this.walletService.createWallet(user.id, 'NGN');
 
-    const otp = await this.otpService.generateOtp(user.id, OtpType.EMAIL_VERIFICATION);
+    const otp = await this.otpService.generateOtp(
+      user.id,
+      OtpType.EMAIL_VERIFICATION,
+    );
 
     await this.mailService.sendOtpEmail(user.email, otp, user.first_name);
 
@@ -70,7 +73,11 @@ export class AuthService {
       throw new BadRequestException('Email already verified');
     }
 
-    await this.otpService.verifyOtp(user.id, data.otp, OtpType.EMAIL_VERIFICATION);
+    await this.otpService.verifyOtp(
+      user.id,
+      data.otp,
+      OtpType.EMAIL_VERIFICATION,
+    );
     await this.usersService.markEmailVerified(user.id);
 
     return { message: 'Email verified successfully.' };
@@ -85,7 +92,10 @@ export class AuthService {
       throw new UnauthorizedException('Invalid credentials');
     }
 
-    const passwordMatch = await bcrypt.compare(data.password, user.password_hash);
+    const passwordMatch = await bcrypt.compare(
+      data.password,
+      user.password_hash,
+    );
     if (!passwordMatch) {
       throw new UnauthorizedException('Invalid credentials');
     }
@@ -97,14 +107,12 @@ export class AuthService {
       isEmailVerified: user.is_email_verified,
     };
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const accessToken = this.jwtService.sign(payload, {
-      expiresIn: this.configService.get('JWT_ACCESS_EXPIRY', '15m') as any,
+      expiresIn: this.configService.get('JWT_ACCESS_EXPIRY', '15m'),
     });
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const refreshToken = this.jwtService.sign(payload, {
-      expiresIn: this.configService.get('JWT_REFRESH_EXPIRY', '7d') as any,
+      expiresIn: this.configService.get('JWT_REFRESH_EXPIRY', '7d'),
     });
 
     return {
@@ -131,7 +139,10 @@ export class AuthService {
       throw new BadRequestException('Email already verified');
     }
 
-    const otp = await this.otpService.generateOtp(user.id, OtpType.EMAIL_VERIFICATION);
+    const otp = await this.otpService.generateOtp(
+      user.id,
+      OtpType.EMAIL_VERIFICATION,
+    );
     await this.mailService.sendOtpEmail(user.email, otp, user.first_name);
 
     return { message: 'OTP resent successfully.' };

@@ -1,4 +1,9 @@
-import { BadRequestException, ConflictException, NotFoundException, UnauthorizedException } from '@nestjs/common';
+import {
+  BadRequestException,
+  ConflictException,
+  NotFoundException,
+  UnauthorizedException,
+} from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
 import { Test, TestingModule } from '@nestjs/testing';
@@ -106,7 +111,9 @@ describe('AuthService', () => {
 
       const result = await service.register(registerDto);
 
-      expect(result.message).toBe('Registration successful. Please verify your email.');
+      expect(result.message).toBe(
+        'Registration successful. Please verify your email.',
+      );
       expect(result.userId).toBe(mockUser.id);
 
       // password must be hashed — the stored hash must NOT equal the plain password
@@ -115,10 +122,16 @@ describe('AuthService', () => {
       expect(await bcrypt.compare(registerDto.password, savedHash)).toBe(true);
 
       // NGN wallet created for the new user
-      expect(walletService.createWallet).toHaveBeenCalledWith(mockUser.id, 'NGN');
+      expect(walletService.createWallet).toHaveBeenCalledWith(
+        mockUser.id,
+        'NGN',
+      );
 
       // OTP generated and email sent
-      expect(otpService.generateOtp).toHaveBeenCalledWith(mockUser.id, OtpType.EMAIL_VERIFICATION);
+      expect(otpService.generateOtp).toHaveBeenCalledWith(
+        mockUser.id,
+        OtpType.EMAIL_VERIFICATION,
+      );
       expect(mailService.sendOtpEmail).toHaveBeenCalledWith(
         mockUser.email,
         '123456',
@@ -129,7 +142,9 @@ describe('AuthService', () => {
     it('throws ConflictException when email already exists', async () => {
       usersService.findByEmail.mockResolvedValue(mockUser as any);
 
-      await expect(service.register(registerDto)).rejects.toThrow(ConflictException);
+      await expect(service.register(registerDto)).rejects.toThrow(
+        ConflictException,
+      );
       expect(usersService.createUser).not.toHaveBeenCalled();
     });
   });
@@ -142,7 +157,10 @@ describe('AuthService', () => {
       otpService.verifyOtp.mockResolvedValue(true);
       usersService.markEmailVerified.mockResolvedValue();
 
-      const result = await service.verifyEmail({ email: mockUser.email, otp: '123456' });
+      const result = await service.verifyEmail({
+        email: mockUser.email,
+        otp: '123456',
+      });
 
       expect(result.message).toBe('Email verified successfully.');
       expect(usersService.markEmailVerified).toHaveBeenCalledWith(mockUser.id);
@@ -184,7 +202,10 @@ describe('AuthService', () => {
         .mockReturnValueOnce('access-token')
         .mockReturnValueOnce('refresh-token');
 
-      const result = await service.login({ email: mockUser.email, password: 'Password@123' });
+      const result = await service.login({
+        email: mockUser.email,
+        password: 'Password@123',
+      });
 
       expect(result.accessToken).toBe('access-token');
       expect(result.refreshToken).toBe('refresh-token');
@@ -217,7 +238,10 @@ describe('AuthService', () => {
 
       usersService.findByEmail.mockResolvedValue(null);
       try {
-        await service.login({ email: 'nobody@example.com', password: 'anything' });
+        await service.login({
+          email: 'nobody@example.com',
+          password: 'anything',
+        });
       } catch (e) {
         wrongEmailError = e as UnauthorizedException;
       }
@@ -240,7 +264,10 @@ describe('AuthService', () => {
       const result = await service.resendOtp({ email: mockUser.email });
 
       expect(result.message).toBe('OTP resent successfully.');
-      expect(otpService.generateOtp).toHaveBeenCalledWith(mockUser.id, OtpType.EMAIL_VERIFICATION);
+      expect(otpService.generateOtp).toHaveBeenCalledWith(
+        mockUser.id,
+        OtpType.EMAIL_VERIFICATION,
+      );
       expect(mailService.sendOtpEmail).toHaveBeenCalledWith(
         mockUser.email,
         '654321',
@@ -254,9 +281,9 @@ describe('AuthService', () => {
         is_email_verified: true,
       } as any);
 
-      await expect(service.resendOtp({ email: mockUser.email })).rejects.toThrow(
-        BadRequestException,
-      );
+      await expect(
+        service.resendOtp({ email: mockUser.email }),
+      ).rejects.toThrow(BadRequestException);
       expect(otpService.generateOtp).not.toHaveBeenCalled();
     });
   });
