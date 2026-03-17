@@ -142,6 +142,7 @@ export class WalletService {
   async convertCurrency(
     userId: string,
     dto: ConvertCurrencyDto,
+    txType: TransactionType = TransactionType.CONVERSION,
   ): Promise<{
     fromCurrency: string;
     toCurrency: string;
@@ -227,7 +228,7 @@ export class WalletService {
       // (h) Create transaction record
       const txRecord = queryRunner.manager.create(Transaction, {
         user_id: userId,
-        type: TransactionType.CONVERSION,
+        type: txType,
         status: TransactionStatus.COMPLETED,
         from_currency: dto.fromCurrency,
         from_amount: fromAmount.toFixed(4),
@@ -281,6 +282,6 @@ export class WalletService {
         'Trade must involve NGN. Use /wallet/convert for other currency pairs.',
       );
     }
-    return this.convertCurrency(userId, dto);
+    return this.convertCurrency(userId, dto, TransactionType.TRADE);
   }
 }
