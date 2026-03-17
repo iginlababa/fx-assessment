@@ -33,7 +33,9 @@ import { WalletModule } from './wallet/wallet.module';
         password: configService.get<string>('DB_PASSWORD'),
         database: configService.get<string>('DB_NAME'),
         autoLoadEntities: true,
-        synchronize: true,
+        synchronize: configService.get('NODE_ENV') !== 'production',
+        migrations: [__dirname + '/database/migrations/*{.ts,.js}'],
+        migrationsRun: configService.get('NODE_ENV') === 'production',
       }),
     }),
 
