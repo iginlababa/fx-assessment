@@ -68,7 +68,9 @@ npm install
 
 # 3. Set up environment variables
 cp .env.example .env
-# Defaults work for the local Docker setup — edit JWT_SECRET for production
+# Defaults work for the local Docker setup.
+# For production: set JWT_SECRET, MAIL_HOST/USER/PASS, ADMIN_PASSWORD, NODE_ENV=production
+# See the Environment Variables section below for the full reference.
 
 # 4. Start infrastructure (PostgreSQL + Redis)
 docker compose up -d
@@ -81,6 +83,56 @@ npm run start:dev
 ```
 
 In development (`NODE_ENV` is not `production`), TypeORM auto-syncs the schema on startup. In production, explicit migrations are used (see [Database Migrations](#database-migrations) below).
+
+---
+
+## Environment Variables
+
+Copy `.env.example` to `.env` and fill in the values before starting the app. Several variables have no sensible default and **the app will not work without them**.
+
+### Required — app will fail to start or core features will break
+
+| Variable | Description | Example |
+|----------|-------------|---------|
+| `DB_HOST` | PostgreSQL host | `localhost` |
+| `DB_PORT` | PostgreSQL port | `5432` |
+| `DB_USERNAME` | PostgreSQL user | `postgres` |
+| `DB_PASSWORD` | PostgreSQL password | `postgres` |
+| `DB_NAME` | PostgreSQL database name | `fx_trading_app` |
+| `JWT_SECRET` | Secret used to sign JWTs — **must be a long random string in production** | `changeme` |
+
+### Required for email — registration OTP will not be delivered without these
+
+In development with no real credentials set, the app falls back to [Ethereal](https://ethereal.email) (a fake SMTP inbox). In production (`NODE_ENV=production`) or when real credentials are present, Nodemailer sends via your configured SMTP server.
+
+| Variable | Description | Example |
+|----------|-------------|---------|
+| `MAIL_HOST` | SMTP server hostname | `smtp.gmail.com` |
+| `MAIL_PORT` | SMTP port (usually 587 for TLS) | `587` |
+| `MAIL_USER` | SMTP login / sender address | `you@yourdomain.com` |
+| `MAIL_PASS` | SMTP password or app password | `your_smtp_password` |
+
+**Common providers:**
+- **Gmail**: enable 2FA and generate an [App Password](https://myaccount.google.com/apppasswords). Use `smtp.gmail.com` / port `587`.
+- **AWS SES**: use the SES SMTP endpoint for your region (e.g. `email-smtp.eu-west-1.amazonaws.com`) / port `587`.
+- **SendGrid**: use `smtp.sendgrid.net` / port `587`, username `apikey`, password = your SendGrid API key.
+- **Resend**: use `smtp.resend.com` / port `587`, username `resend`, password = your Resend API key.
+
+### Optional — have sensible defaults
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `PORT` | `3000` | HTTP port the app listens on |
+| `NODE_ENV` | `development` | Set to `production` to enable migrations, real SMTP, and disable sync |
+| `REDIS_HOST` | `localhost` | Redis host (app works without Redis — falls back to in-memory cache) |
+| `REDIS_PORT` | `6379` | Redis port |
+| `JWT_ACCESS_EXPIRY` | `15m` | Access token lifetime |
+| `JWT_REFRESH_EXPIRY` | `7d` | Refresh token lifetime |
+| `FX_API_BASE_URL` | `https://open.er-api.com/v6/latest` | Exchange rate API base URL |
+| `FX_RATE_CACHE_TTL` | `300` | Redis cache TTL for FX rates in seconds |
+| `FX_RATE_MAX_AGE` | `1800` | Max age in seconds for DB-cached rates before fallback fails |
+| `ADMIN_EMAIL` | `admin@fxtradingapp.com` | Email for the auto-seeded admin account |
+| `ADMIN_PASSWORD` | `Admin@123456` | Password for the auto-seeded admin account — **change this in production** |
 
 ---
 
