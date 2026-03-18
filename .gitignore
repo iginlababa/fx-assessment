@@ -9,3 +9,4 @@ project_spec.md
 claude.md
 .mcp.json
 .claude/
+smoke_test.sh

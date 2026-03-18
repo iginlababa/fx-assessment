@@ -295,18 +295,33 @@ Both endpoints use the same underlying `convertCurrency()` method. `tradeCurrenc
 # Unit tests (no DB or Redis needed)
 npm run test
 
-# E2E tests (requires PostgreSQL + Redis via docker-compose up -d)
+# E2E tests (requires PostgreSQL + Redis via docker compose up -d)
 npm run test:e2e
 
 # Coverage report
 npm run test:cov
 ```
 
-| Test suite | Count |
-|------------|-------|
-| AuthService unit tests | 10 |
-| FxService unit tests | 10 |
-| WalletService unit tests | 16 |
-| E2E — full user flow | 13 |
-| E2E — concurrent double-spend prevention | 1 |
-| **Total** | **50** |
+E2E tests always run with `NODE_ENV=test` and load `.env.example` (safe defaults), so they are unaffected by whatever is set in your local `.env`.
+
+### Unit tests
+
+| Suite | Tests |
+|-------|-------|
+| AuthService | 10 |
+| FxService | 10 |
+| WalletService | 16 |
+| AdminService | 15 |
+| RolesGuard | 8 |
+| AppController | 1 |
+| **Total** | **60** |
+
+### E2E tests
+
+| Suite | Tests |
+|-------|-------|
+| Full user flow (register → verify → login → fund → convert → trade → transactions) | 17 |
+| Guard enforcement (401 / 403) | 7 |
+| Concurrent double-spend prevention | 1 |
+| Admin RBAC endpoints | 12 |
+| **Total** | **36** |
